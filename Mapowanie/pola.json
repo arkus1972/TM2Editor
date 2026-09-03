@@ -1,0 +1,62 @@
+{
+  "_wersja": 1,
+  "_uwaga": "Ten plik opisuje, co już wiemy o pliku BACKUP. Powstał jako kopia stanu wiedzy z dziennika projektu (03-stan-prac.md) na dzień 2026-09-03. 'ustal' dopisuje tu nowe znaleziska; edycja ręczna też jest w porządku, to zwykły JSON.",
+  "rozmiar_pliku_oczekiwany": 124748,
+  "geometria": {
+    "blokKitowOd": 64,
+    "krokKitu": 234,
+    "liczbaKitow": 99,
+    "trigerBlokOd": 126,
+    "krokTrigera": 84,
+    "liczbaTrigerow": 2
+  },
+  "polaKitu": [
+    {
+      "nazwa": "kit.name",
+      "offset": 60,
+      "dlugosc": 22,
+      "kodowanie": "utf16le",
+      "opis": "Nazwa kitu, UTF-16LE, dopełniana spacjami, 11 znaków / 22 B"
+    }
+  ],
+  "polaTrigera": [
+    {
+      "nazwa": "trig.instrument",
+      "offset": 0,
+      "dlugosc": 2,
+      "kodowanie": "uint16le",
+      "opis": "Numer brzmienia (Instrument), indeks wprost. Kierunek potwierdzony, szerokość 16-bit NIE potwierdzona na wartości >255 -- na module z 162 brzmieniami fabrycznymi nie da się tego eksperymentalnie sprawdzić."
+    },
+    {
+      "nazwa": "trig.level",
+      "offset": 4,
+      "dlugosc": 1,
+      "kodowanie": "uint8_wprost_0_100",
+      "opis": "Poziom pada. 0 = minimum, 100 = maksimum, wprost, bez odwrócenia."
+    }
+  ],
+  "polaGlobalne": [
+    {
+      "nazwa": "checksum",
+      "offsetOdKonca": 16,
+      "dlugosc": 16,
+      "kodowanie": "md5_reszty_pliku",
+      "opis": "Ostatnie 16 B pliku = MD5 wszystkich poprzedzających bajtów."
+    },
+    {
+      "nazwa": "current_kit_pointer",
+      "offset": 54,
+      "dlugosc": 1,
+      "kodowanie": "uint8",
+      "opis": "Hipoteza (4 zgodne próbki): który kit jest aktualnie wyświetlany/wybrany na module w chwili BACKUP SAVE, 0-based. Nie jest bitmapą zmienionych kitów."
+    }
+  ],
+  "otwartePytania": [
+    "Pola +0x02 (stałe '01 00'?) i +0x06 (pan/tune?) w rekordzie triggera.",
+    "Ok. 60 nieznanych bajtów na początku bloku kitu, przed nazwą.",
+    "Ok. 20 nieznanych bajtów po drugim triggerze, do końca 234-bajtowego bloku.",
+    "Nagłówek pliku: pola pod 0x14, 0x18, 0x1C, 0x28.",
+    "Strefa ~101 KB zer po bloku kitów -- zarezerwowane miejsce na co?",
+    "W pliku jest 100 nazw kitów, nie 99 -- dlaczego jedna więcej?"
+  ]
+}

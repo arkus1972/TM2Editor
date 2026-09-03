@@ -1,0 +1,103 @@
+name: Build
+
+# Kompilacja, testy, złożenie .app, podpis ad-hoc i wystawienie Wydania.
+#
+# Wzorzec przeniesiony z PulsoKita. Różnica jest jedna, ale istotna: tam
+# budował xcodebuild z pliku .xcodeproj, tu buduje swift build z Package.swift.
+# Reszta — podpis ad-hoc, spakowanie, poświadczenie pochodzenia — bez zmian.
+#
+# W sesji roboczej nie ma kompilatora Swift, więc TO JEST miejsce, w którym
+# kod pierwszy raz naprawdę się kompiluje. Log tego przebiegu jest jedynym
+# wiarygodnym źródłem informacji o błędach składni i typów.
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: write        # potrzebne do wystawienia Wydania
+  attestations: write    # poświadczenie pochodzenia artefaktu
+  id-token: write
+
+jobs:
+  build:
+    name: Build and test
+    runs-on: macos-14
+
+    steps:
+      - name: Pobranie kodu
+        uses: actions/checkout@v4
+
+      - name: Wersja Swifta
+        run: swift --version
+
+      - name: Kontrola balansu nawiasów
+        # Tani test uruchamiany przed kompilacją. Nie zastąpi kompilatora, ale
+        # daje czytelny komunikat, kiedy problemem jest zgubiona klamra.
+        run: python3 Scripts/sprawdz-nawiasy.py Sources Tests
+
+      - name: Samotest analizatora różnicowego
+        # Analizator generuje sztuczną serię o znanym układzie i musi ją
+        # rozpoznać. Jeśli przestanie, wiemy o tym, zanim ktoś zaufa mu na
+        # prawdziwych danych z modułu.
+        run: |
+          python3 tools/tm2diff.py gen "${RUNNER_TEMP}/seria"
+          python3 tools/tm2diff.py series "${RUNNER_TEMP}/seria" --no-hex \
+            > "${RUNNER_TEMP}/raport.txt"
+          echo "--- sprawdzam, czy analizator znalazł to, co miał znaleźć ---"
+          grep -q "Przyjmuję początek bloku kitu 1 = 0x000040" "${RUNNER_TEMP}/raport.txt"
+          grep -q "Idealnie: dokładnie jeden bajt" "${RUNNER_TEMP}/raport.txt"
+          grep -q "Najbardziej prawdopodobny rozmiar bloku kitu: 128 B" "${RUNNER_TEMP}/raport.txt"
+          grep -q "suma 32-bit (LE)" "${RUNNER_TEMP}/raport.txt"
+          echo "Analizator OK"
+
+      - name: Kompilacja (debug)
+        run: swift build -c debug
+
+      - name: Testy jednostkowe
+        run: swift test
+
+      - name: Kompilacja (release) i złożenie .app
+        run: |
+          chmod +x Scripts/zbuduj-app.sh
+          Scripts/zbuduj-app.sh release
+
+      - name: Spakowanie
+        run: |
+          cd build
+          zip -r -y "TM-2-Editor.zip" "TM-2 Editor.app"
+          shasum -a 256 "TM-2-Editor.zip" | tee "TM-2-Editor.zip.sha256"
+
+      - name: Poświadczenie pochodzenia
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: actions/attest-build-provenance@v1
+        with:
+          subject-path: build/TM-2-Editor.zip
+
+      - name: Artefakt przebiegu
+        uses: actions/upload-artifact@v4
+        with:
+          name: TM-2-Editor
+          path: |
+            build/TM-2-Editor.zip
+            build/TM-2-Editor.zip.sha256
+          retention-days: 30
+
+      - name: Wystawienie Wydania
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            build/TM-2-Editor.zip
+            build/TM-2-Editor.zip.sha256
+          generate_release_notes: true
+          body: |
+            Aplikacja jest podpisana ad-hoc, bez notaryzacji Apple.
+            Przy pierwszym uruchomieniu macOS zapyta o potwierdzenie:
+            kliknij aplikację prawym przyciskiem i wybierz Otwórz.
+
+            Suma kontrolna archiwum jest w pliku `.sha256` obok.

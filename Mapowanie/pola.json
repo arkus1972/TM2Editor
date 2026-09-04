@@ -1,6 +1,6 @@
 {
   "_wersja": 1,
-  "_uwaga": "Ten plik opisuje, co już wiemy o pliku BACKUP. 'ustal' dopisuje tu nowe znaleziska; edycja ręczna też jest w porządku, to zwykły JSON.",
+  "_uwaga": "Ten plik opisuje, co juz wiemy o pliku BACKUP. Edycja reczna jest w porzadku, to zwykly JSON.",
   "rozmiar_pliku_oczekiwany": 124748,
   "geometria": {
     "blokKitowOd": 64,
@@ -39,7 +39,14 @@
       "offset": 6,
       "dlugosc": 2,
       "kodowanie": "int16le_ze_znakiem",
-      "opis": "Pitch (strojenie). Ze znakiem, 1:1 z wyswietlaczem. Max +120 zmierzone 2026-09-04 (kit 40, TRIG IN 1 head). Wartosci ujemne potwierdzone w pliku bazowym: kit 1 trigger 2 ma fabrycznie FE FF = -2."
+      "opis": "Pitch. ZAKRES POTWIERDZONY 2026-09-04 na obu skrajnosciach: -120 (88 FF) do +120 (78 00), 1:1 z wyswietlaczem."
+    },
+    {
+      "nazwa": "trig.pan",
+      "offset": 8,
+      "dlugosc": 1,
+      "kodowanie": "uint8_przesuniecie_15",
+      "opis": "Pan. ZAKRES POTWIERDZONY 2026-09-04 na obu skrajnosciach: 0 = L15, 15 = CENTER, 30 = R15. Kit 1 ma fabrycznie 15 w obu triggerach."
     }
   ],
   "polaGlobalne": [
@@ -55,14 +62,14 @@
       "offset": 54,
       "dlugosc": 1,
       "kodowanie": "uint8",
-      "opis": "Ktory kit jest aktualnie wybrany na module w chwili BACKUP SAVE, 0-based. POTWIERDZONE 2026-09-04: 0x27 = 39 przy edycji kitu 40."
+      "opis": "Ktory kit jest aktualnie wybrany na module w chwili BACKUP SAVE, 0-based. POTWIERDZONE: 0x27 = 39 przy edycji kitu 40."
     }
   ],
   "otwartePytania": [
     "Pole +0x02 w rekordzie triggera (stale '01 00'?).",
-    "Pole +0x10 w rekordzie triggera -- zmierzone 00 -> 01 (b1.bin, kit 40, trigger 2), parametr nierozpoznany.",
-    "Gdzie jest Pan? Wczesniej typowany na +0x06, ale tam siedzi pitch.",
-    "Dolna granica trig.pitch -- spodziewane -120.",
+    "Bajty +0x09..+0x0B (zawsze 00) -- dopelnienie po trig.pan czy osobne pola?",
+    "Pole +0x0C: trigger1 = 36, trigger2 = 38, rosnie o 2 -- wewnetrzny identyfikator?",
+    "Pole +0x10 -- zmierzone 00 -> 01 (b1.bin, kit 40, trigger 2), parametr nierozpoznany.",
     "Ok. 60 nieznanych bajtow na poczatku bloku kitu, przed nazwa.",
     "Ok. 20 nieznanych bajtow po drugim triggerze, do konca bloku 234 B.",
     "Naglowek pliku: pola pod 0x14, 0x18, 0x1C, 0x28.",

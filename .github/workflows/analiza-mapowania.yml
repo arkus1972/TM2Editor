@@ -1,0 +1,47 @@
+name: Analiza mapowania
+
+on:
+  push:
+    paths:
+      - 'Mapowanie/nowe/**'
+      - 'Mapowanie/baza.bin'
+      - 'Mapowanie/pola.json'
+      - 'tools/tm2map.py'
+  workflow_dispatch:
+
+jobs:
+  analizuj:
+    name: Analiza plikow w Mapowanie/nowe
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Pobranie kodu
+        uses: actions/checkout@v4
+
+      - name: Wersja Pythona
+        run: python3 --version
+
+      - name: Sprawdzenie, czy jest baza i stan wiedzy
+        run: |
+          test -f Mapowanie/baza.bin || { echo "BLAD: brak Mapowanie/baza.bin"; exit 1; }
+          test -f Mapowanie/pola.json || { echo "BLAD: brak Mapowanie/pola.json"; exit 1; }
+
+      - name: Analiza plikow w Mapowanie/nowe
+        run: |
+          shopt -s nullglob
+          pliki=(Mapowanie/nowe/*.bin)
+          if [ ${#pliki[@]} -eq 0 ]; then
+            echo "Brak plikow *.bin w Mapowanie/nowe/ -- nie ma czego analizowac."
+            exit 0
+          fi
+          for plik in "${pliki[@]}"; do
+            echo ""
+            echo "================================================================"
+            echo "  PLIK: ${plik}"
+            echo "================================================================"
+            python3 tools/tm2map.py analizuj "${plik}" --sesja Mapowanie \
+              --opis "przebieg CI, commit ${GITHUB_SHA}"
+          done
+
+      - name: Podsumowanie stanu wiedzy
+        run: python3 tools/tm2map.py raport --sesja Mapowanie

@@ -619,6 +619,19 @@ extension BackupLayout {
             }
         }
 
+        // Pięć pól, które `unmappedTM2` zgadywał jako parametry brzmienia,
+        // a które pomiary umieściły w globalnym rekordzie ustawień wejścia:
+        // Type, Sensitivity, Threshold, Retrig Cancel i Mask Time. W slocie
+        // brzmienia nie mają czego szukać — pokazywanie ich tam jako
+        // „not mapped yet" sugerowałoby, że kiedyś się tam znajdą, a wiemy,
+        // że nie. `unmappedTM2` zostaje nietknięty, bo zależą od niego
+        // pozostałe testy i tryb „jeszcze nic nie wiem o formacie".
+        let przeniesioneDoGlobalnych: Set<String> = [
+            "trig.type", "trig.sensitivity", "trig.threshold",
+            "trig.retrigCancel", "trig.maskTime",
+        ]
+        layout.triggerFields.removeAll { przeniesioneDoGlobalnych.contains($0.id) }
+
         // Pola, których `unmappedTM2` w ogóle nie przewidywał — wyszły dopiero
         // z mapowania różnicowego. Dopisujemy je tutaj, a nie do pustego
         // layoutu, żeby nie ruszać jego wartości domyślnych (zależą od nich
@@ -657,6 +670,80 @@ extension BackupLayout {
                     + " edytor odmówił wartości legalnej, niż żeby wpisał"
                     + " do pliku wartość, której moduł nigdy by nie wystawił.",
                 display: .scaled(divisor: 10, fractionDigits: 1, unit: "ms")
+            )
+        )
+
+        // Pomiar `kit40-inst.bin` (2026-11-21). Arek ustawił na kicie 40,
+        // TRIG IN 1 head, cały komplet parametrów brzmienia na skrajne
+        // i ROZPOZNAWALNE wartości: Level 100, Dynmcs MAX, Pitch 120,
+        // Pan R15, Loop ON, Mono/Poly MONO, Offset 300 ms, MuteGroup GRP2,
+        // Note# 127, EffectSend ON. Każda inna, więc nic nie mogło się
+        // pomylić — to ta sama sztuczka, której brakowało przy pierwszym
+        // teście Loop/Offset, gdzie oba parametry przyjęły 1.
+        //
+        // Slot okazał się siatką 21 pól 16-bitowych LE na parzystych
+        // offsetach. Po tym pomiarze wygląda tak:
+        //
+        //   +0x00 Instrument   +0x02 ?            +0x04 Level
+        //   +0x06 Pitch        +0x08 Pan          +0x0A MuteGroup
+        //   +0x0C Note#        +0x0E Loop         +0x10 Dynmcs
+        //   +0x12 ?            +0x14 ?            +0x16 = 0xFFFF
+        //   +0x18 ?            +0x1A Offset       +0x1C…+0x28 zera
+        //
+        // Mono/Poly i EffectSend nie drgnęły, bo oba były już ustawione
+        // na docelową wartość — siedzą pod +0x12 i +0x14 (obie mają 1),
+        // ale którym jest które, tego ten pomiar nie rozstrzyga.
+        layout.triggerFields.append(
+            FieldSpec(
+                id: "trig.muteGroup",
+                label: "Mute Group",
+                scope: .trigger,
+                group: .sound,
+                offset: 10,                 // +0x0A
+                encoding: .unsigned(min: 0, max: 8),
+                note: "Zmierzone: GRP2 na wyświetlaczu to 2 w pliku, a stan"
+                    + " wyjściowy (bez grupy) to 0. Skala 1:1, 0 = brak grupy."
+                    + " GÓRNA GRANICA NIEZMIERZONA — przyjęte 8, bo tyle grup"
+                    + " ma zwykle sprzęt Rolanda. Hipoteza, że grupa siedzi"
+                    + " pod +0x16 (gdzie stoi 0xFFFF, czyli −1 jako „OFF”),"
+                    + " okazała się nietrafiona: tamten bajt nie drgnął."
+            )
+        )
+
+        layout.triggerFields.append(
+            FieldSpec(
+                id: "trig.note",
+                label: "Note Number",
+                scope: .trigger,
+                group: .sound,
+                offset: 12,                 // +0x0C
+                encoding: .unsigned(min: 0, max: 127),
+                note: "Numer nuty MIDI wysyłanej przy uderzeniu. Górna granica"
+                    + " ZMIERZONA: 127 na wyświetlaczu to 127 w pliku."
+                    + " Hipoteza postawiona wcześniej z samych wartości"
+                    + " fabrycznych — kit 1 ma w czterech slotach 36, 35, 38"
+                    + " i 40, czyli standardowe numery nut perkusyjnych"
+                    + " w kolejności padów — i pomiar ją potwierdził."
+            )
+        )
+
+        layout.triggerFields.append(
+            FieldSpec(
+                id: "trig.dynamics",
+                label: "Dynamics",
+                scope: .trigger,
+                group: .sound,
+                offset: 16,                 // +0x10
+                encoding: .enumeration(values: ["LINEAR", "LOUD 1", "LOUD 2",
+                                                "LOUD 3", "MAX"]),
+                note: "Zmierzone: MAX na wyświetlaczu to 4 w pliku, a to"
+                    + " ostatnia z pięciu pozycji wymienionych w instrukcji"
+                    + " (LINEAR, LOUD 1, LOUD 2, LOUD 3, MAX) — więc indeks"
+                    + " idzie wprost, od zera. Pierwsze pole w tym projekcie"
+                    + " z prawdziwą listą nazw, a nie samym numerem."
+                    + " Wyjaśnia też starą zagadkę: wartość 1 pod tym"
+                    + " offsetem w archiwalnym `b1.bin` to po prostu LOUD 1,"
+                    + " a nie ślad nieznanego parametru."
             )
         )
 

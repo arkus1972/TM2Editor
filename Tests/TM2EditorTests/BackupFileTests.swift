@@ -462,6 +462,47 @@ final class BackupFileTests: XCTestCase {
         }
     }
 
+    /// Pomiar `kit40-inst.bin`: komplet parametrów brzmienia ustawiony na
+    /// skrajne i RÓŻNE wartości naraz, żeby żadnego nie dało się pomylić
+    /// z innym.
+    func testMeasuredSoundSlotFieldsFromKit40() {
+        let layout = BackupLayout.mapped2026_09_02
+        func pole(_ id: String) -> FieldSpec? {
+            layout.triggerFields.first { $0.id == id }
+        }
+
+        XCTAssertEqual(pole("trig.muteGroup")?.offset, 0x0A)
+        XCTAssertEqual(pole("trig.note")?.offset, 0x0C)
+        XCTAssertEqual(pole("trig.dynamics")?.offset, 0x10)
+
+        // Note# zmierzone na górnej granicy: wyświetlacz 127, plik 127.
+        XCTAssertEqual(pole("trig.note")?.encoding.numericRange, 0...127)
+
+        // Dynamics to pierwsza lista nazw w tym projekcie. MAX = 4,
+        // zmierzone; nazwy i kolejność z instrukcji.
+        XCTAssertEqual(pole("trig.dynamics")?.encoding,
+                       .enumeration(values: ["LINEAR", "LOUD 1", "LOUD 2",
+                                             "LOUD 3", "MAX"]))
+        XCTAssertEqual(pole("trig.dynamics")?.encoding.numericRange, 0...4)
+    }
+
+    /// Type, Sensitivity, Threshold, Retrig Cancel i Mask Time były
+    /// w `unmappedTM2` zgadnięte jako parametry brzmienia. Pomiary
+    /// umieściły je w globalnym rekordzie ustawień wejścia, więc
+    /// w zmierzonym układzie nie mogą już wisieć w slocie.
+    func testFieldsProvenGlobalAreGoneFromTheSoundSlot() {
+        let layout = BackupLayout.mapped2026_09_02
+        for id in ["trig.type", "trig.sensitivity", "trig.threshold",
+                   "trig.retrigCancel", "trig.maskTime"] {
+            XCTAssertNil(layout.triggerFields.first { $0.id == id },
+                         "\(id) należy do ustawień wejścia, nie do slotu brzmienia.")
+        }
+
+        // A w pustym układzie mają zostać — zależą od niego inne testy.
+        let pusty = BackupLayout.unmappedTM2
+        XCTAssertNotNil(pusty.triggerFields.first { $0.id == "trig.sensitivity" })
+    }
+
     /// `unmappedTM2` ma zostać nietknięty — zależą od niego pozostałe testy
     /// i tryb pracy „jeszcze nic nie wiem o formacie".
     func testUnmappedLayoutStaysUnmapped() {

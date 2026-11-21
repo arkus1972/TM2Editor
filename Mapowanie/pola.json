@@ -20,6 +20,13 @@
       "dlugosc": 22,
       "kodowanie": "utf16le",
       "opis": "Nazwa kitu, UTF-16LE, 11 znakow / 22 B. Lezy na poczatku bloku kitu."
+    },
+    {
+      "nazwa": "kit.effect.strefa",
+      "offset": 22,
+      "dlugosc": 44,
+      "kodowanie": "pola_uint16le",
+      "opis": "STREFA EFEKTU KITU (+0x16..+0x41, 44 B, pola 16-bitowe LE). Potwierdzone pomiarem kit40-inst.bin: Kit Effect = Reverb z parametrami RevType PLATE, RevTime 99, PreDly 100, LoCut 800Hz, HiCut Flat, Dry-Wet 0:100. Przyporzadkowanie z tego pomiaru: +0x1A = 4 (RevType PLATE?), +0x1C = 99 (RevTime, 1:1), +0x1E = 100 (PreDly, 1:1), +0x20 = 10 (LoCut 800Hz, indeks tablicy czestotliwosci), +0x22 = 9 (HiCut Flat, ostatnia pozycja), +0x26 = 100 (Dry-Wet). Nietkniete: +0x16 = 1, +0x18 = 19, +0x24 = 10, +0x28 = +0x2A = 100. NIE WYSTAWIONE DO EDYCJI: znaczenie kazdego pola zalezy od typu efektu (12 typow w instrukcji), a bajt z typem nie jest jeszcze zidentyfikowany (+0x18 = 19 nie miesci sie w liscie 12 typow)."
     }
   ],
   "polaTrigera": [
@@ -70,7 +77,29 @@
       "offset": 12,
       "dlugosc": 2,
       "kodowanie": "uint16le",
-      "opis": "HIPOTEZA (nie pomiar): Note#, numer nuty MIDI pada. W fabrycznym kicie 1 cztery sloty maja 36 / 35 / 38 / 40 -- dokladnie standardowe numery nut perkusyjnych w kolejnosci padow. Instrukcja potwierdza istnienie Note# na pad. Do potwierdzenia pomiarem: zmienic Note# na 60."
+      "zakres": [
+        0,
+        127
+      ],
+      "opis": "Note#, numer nuty MIDI. POTWIERDZONE pomiarem kit40-inst.bin: wyswietlacz 127 = plik 127. Wartosci fabryczne kitu 1 (36/35/38/40) to standardowe numery nut perkusyjnych w kolejnosci padow."
+    },
+    {
+      "nazwa": "trig.mute_group",
+      "offset": 10,
+      "dlugosc": 2,
+      "kodowanie": "uint16le",
+      "zakres": [
+        0,
+        8
+      ],
+      "opis": "MuteGroup. Zmierzone: GRP2 = 2, brak grupy = 0, skala 1:1. GORNA GRANICA NIEZMIERZONA, przyjete 8. Hipoteza, ze grupa siedzi pod +0x16 (0xFFFF = -1 jako OFF), okazala sie nietrafiona."
+    },
+    {
+      "nazwa": "trig.dynamics",
+      "offset": 16,
+      "dlugosc": 2,
+      "kodowanie": "uint16le_lista",
+      "opis": "Dynmcs. Zmierzone: MAX = 4, czyli ostatnia z pieciu pozycji z instrukcji (LINEAR, LOUD 1, LOUD 2, LOUD 3, MAX) -- indeks idzie wprost od zera. Wyjasnia tez wartosc 1 pod tym offsetem w archiwalnym b1.bin: to bylo LOUD 1."
     }
   ],
   "polaGlobalne": [
@@ -571,17 +600,15 @@
   ],
   "otwartePytania": [
     "Ktory z bajtow +0x09 / +0x0A rekordu wejscia to XTLK Cancel, a ktory Noise Cancel. Rozstrzygnie backup ze zmiana TYLKO jednego z nich.",
-    "Retrig Cancel: tablica przeliczen. Znane dwa punkty -- wyswietlacz 1 = raw 16, wyswietlacz 16 = raw 40. Trzeci punkt (np. 8) powie, czy to rownomierne przyblizenie, czy prawdziwa tablica.",
-    "Bajt +0x07 rekordu wejscia: wartosc wyliczana z Type (12 przy Type 31/32, 16 przy Type 1). Co to jest?",
-    "Bajt +0x0B rekordu wejscia: w bazie 2, w obu testach 0.",
-    "Nazwy typow pada (Type 1..31) i tablica wartosci domyslnych, ktore kazdy typ narzuca pozostalym parametrom. Bez tego Type nie moze byc edytowalny.",
+    "Ktore z pol slotu +0x12 / +0x14 to Mono/Poly, a ktore EffectSend. Oba maja 1 i oba byly juz ustawione na docelowa wartosc, wiec pomiar kit40-inst.bin ich nie ruszyl. Rozstrzygnie backup z EffectSend przelaczonym na OFF.",
+    "Retrig Cancel: tablica przeliczen. Znane dwa punkty -- wyswietlacz 1 = raw 16, wyswietlacz 16 = raw 40.",
+    "Bajt +0x07 rekordu wejscia: wartosc wyliczana z Type. Trzy zgodne punkty: Type 32 -> 12, Type 31 -> 12, Type 1 -> 16.",
+    "Bajt +0x0B rekordu wejscia: w bazie 2, we wszystkich testach 0.",
+    "Nazwy typow pada (Type 1..31) i tablica wartosci domyslnych narzucanych przez kazdy typ.",
     "Nazwy dwoch brakujacych krzywych (Curve 0..6; wiemy, ze 6 = LOUD2).",
-    "44 B danych kitu (+0x16..+0x41): instrukcja na poziomie kitu wymienia tylko nazwe i KIT EFFECT (12 typow: THRU, DELAY, TAPE ECHO, CHORUS, FLANGER, PHASER, EQUALIZER, COMP, WAH, DIST, RINGMOD, REVERB) plus parametry efektu. Hipoteza: te 44 B to wlasnie efekt kitu.",
-    "Slot brzmienia, pola bez przypisania: +0x02 (we wszystkich slotach 1), +0x0A (0), +0x10 (na kicie 40 / 2 head ustawione na 1 juz w najstarszym pliku b1.bin), +0x12 (1), +0x14 (w kicie 1 tylko 2 head ma 1), +0x16 (wszedzie 0xFFFF, czyli -1 -- hipoteza: MuteGroup = OFF), +0x18 oraz +0x1C..+0x29.",
-    "Instrukcja wymienia na pad jeszcze: Dynmcs (LINEAR / LOUD1 / LOUD2 / LOUD3 / MAX), Mono/Poly, MuteGroup, EffectSend. Zadne nie jest jeszcze zmierzone.",
-    "Note# pod +0x0C to na razie HIPOTEZA z wartosci (36/35/38/40 w fabrycznym kicie 1). Do potwierdzenia: zmienic Note# na 60.",
-    "Loop=ON nie przestawil zadnego innego bajtu, choc instrukcja mowi, ze wymusza MONO -- czyli modul wymusza to przy grze, a nie w zapisie.",
-    "Naglowek pliku 0x00..0x3F: pola pod 0x14, 0x18, 0x1C, 0x28. Osobno: bajty 0x0A (67 -> 66) i 0x2C (4 -> 3) zmienily sie miedzy baza a para testowa, ale sa identyczne w obu plikach testowych -- czyli nie licznik zapisow.",
+    "Ktory bajt strefy efektu trzyma TYP efektu. Kandydat +0x18 = 19, ale instrukcja wymienia 12 typow, wiec albo firmware ma ich wiecej, albo typ jest gdzie indziej.",
+    "Slot brzmienia, pola bez przypisania: +0x02 (we wszystkich slotach 1), +0x16 (wszedzie 0xFFFF), +0x18, +0x1C..+0x28 (zera).",
+    "Naglowek pliku 0x00..0x3F: pola pod 0x0A, 0x14, 0x18, 0x1C, 0x28, 0x2C.",
     "Strefa ~101 KB zer po bloku kitow.",
     "W pliku jest 100 nazw kitow, nie 99 -- dlaczego jedna wiecej?"
   ]

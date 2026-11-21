@@ -302,4 +302,23 @@ final class KitEditorTests: XCTestCase {
         XCTAssertEqual(editor.changedKits, [5, 9],
                        "Ponowienie ma kropkę przywrócić.")
     }
+
+    // MARK: - Zaznaczenie
+
+    /// Zaznaczenie to osobny obiekt, nie część edytora. Ten test pilnuje
+    /// przede wszystkim tego, że edytor go nie zna — gdyby ktoś kiedyś
+    /// dopisał `selectedKit` z powrotem do `KitEditor`, przełączanie
+    /// triggerów znowu zaczęłoby przebudowywać całe okno.
+    func testZaznaczenieStartujeOdPierwszegoKituITriggera() {
+        let selection = EditorSelection()
+        XCTAssertEqual(selection.kit, 1)
+        XCTAssertEqual(selection.trigger, 1)
+
+        selection.kit = 42
+        selection.trigger = 3
+        selection.reset()
+
+        XCTAssertEqual(selection.kit, 1, "Nowy plik ma startować od kitu 1.")
+        XCTAssertEqual(selection.trigger, 1)
+    }
 }

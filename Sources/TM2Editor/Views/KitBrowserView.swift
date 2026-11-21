@@ -8,27 +8,50 @@ struct KitBrowserView: View {
 
     @ObservedObject var editor: KitEditor
 
+    /// Zaznaczenie jest tu zwykłym `let`, a NIE `@ObservedObject`. Celowo:
+    /// ten widok trzyma splitter i nie ma się przebudowywać przy zmianie
+    /// wybranego triggera. Obserwują je dopiero te dzieci, które muszą.
+    let selection: EditorSelection
+
     var body: some View {
         HSplitView {
-            // Lista dostaje GOTOWE wartości, a nie cały obiekt edytora.
-            // Gdyby obserwowała edytor, każda zmiana czegokolwiek — choćby
-            // przełączenie triggera w prawym panelu — kazałaby SwiftUI
-            // przeładować całą 99-wierszową tabelę. Przy wartościach plus
-            // `.equatable()` przerysowanie jest pomijane, dopóki lista
-            // naprawdę się nie zmieni.
-            KitListView(
+            KitListPane(
+                selection: selection,
                 kitCount: max(editor.layout.kitCount, 1),
                 names: editor.kitNames,
-                changedKits: editor.changedKits,
-                selected: editor.selectedKit,
-                onSelect: { editor.selectedKit = $0 }
+                changedKits: editor.changedKits
             )
-            .equatable()
             .frame(minWidth: 200, idealWidth: 240, maxWidth: 320)
 
-            KitDetailView(editor: editor)
+            KitDetailView(editor: editor, selection: selection)
                 .frame(minWidth: 520)
         }
+    }
+}
+
+/// Cienkie opakowanie listy kitów.
+///
+/// Ono jedno obserwuje zaznaczenie, żeby podświetlić właściwy wiersz. Jego
+/// ciało jest jednak puste treściowo — składa tylko `KitListView` z gotowych
+/// wartości. Dzięki temu zmiana triggera przelatuje tędy bez kosztu:
+/// `.equatable()` porównuje wartości, widzi, że lista jest ta sama, i
+/// pomija przerysowanie 99 wierszy.
+struct KitListPane: View {
+
+    @ObservedObject var selection: EditorSelection
+    let kitCount: Int
+    let names: [String?]
+    let changedKits: Set<Int>
+
+    var body: some View {
+        KitListView(
+            kitCount: kitCount,
+            names: names,
+            changedKits: changedKits,
+            selected: selection.kit,
+            onSelect: { selection.kit = $0 }
+        )
+        .equatable()
     }
 }
 
@@ -36,15 +59,13 @@ struct KitBrowserView: View {
 
 /// Lista 99 kitów.
 ///
-/// Celowo NIE obserwuje `KitEditor`. Na macOS `List` z zaznaczeniem to pod
-/// spodem `NSTableView`, a przebudowa widoku oznacza pełne przeładowanie
-/// wszystkich wierszy. Gdy lista obserwowała edytor, przełączenie triggera
-/// w prawym panelu — zmiana, która tej listy nie dotyczy w ogóle —
-/// przeładowywało 99 wierszy, z których każdy dekodował nazwę kitu z pliku
-/// i przeszukiwał liniowo listę zmian. To był ten kilkusekundowy przestój.
+/// Celowo nie obserwuje niczego — ani edytora, ani zaznaczenia. Na macOS
+/// `List` z zaznaczeniem to pod spodem `NSTableView`, więc przebudowa widoku
+/// oznacza przeładowanie wszystkich wierszy; każdy wiersz dekodował przy tym
+/// nazwę kitu z pliku i przeszukiwał liniowo historię zmian.
 ///
-/// Teraz widok dostaje gotowe wartości i jest `Equatable`, więc SwiftUI
-/// pomija przerysowanie, dopóki któraś z nich faktycznie się nie zmieni.
+/// Widok dostaje gotowe wartości i jest `Equatable`, więc SwiftUI pomija
+/// przerysowanie, dopóki któraś z nich faktycznie się nie zmieni.
 struct KitListView: View, Equatable {
 
     let kitCount: Int
@@ -128,6 +149,7 @@ struct KitListView: View, Equatable {
 struct KitDetailView: View {
 
     @ObservedObject var editor: KitEditor
+    @ObservedObject var selection: EditorSelection
 
     var body: some View {
         ScrollView {
@@ -139,10 +161,10 @@ struct KitDetailView: View {
 
                 // Pola kitu
                 FieldSection(
-                    title: "Kit \(editor.selectedKit)",
+                    title: "Kit \(selection.kit)",
                     fields: editor.layout.kitFields,
                     editor: editor,
-                    kit: editor.selectedKit,
+                    kit: selection.kit,
                     trigger: 1
                 )
 
@@ -173,8 +195,8 @@ struct KitDetailView: View {
                                 title: group.displayName,
                                 fields: fields,
                                 editor: editor,
-                                kit: editor.selectedKit,
-                                trigger: editor.selectedTrigger
+                                kit: selection.kit,
+                                trigger: selection.trigger
                             )
                         }
                     }
@@ -186,7 +208,7 @@ struct KitDetailView: View {
                         title: "System",
                         fields: editor.layout.globalFields,
                         editor: editor,
-                        kit: editor.selectedKit,
+                        kit: selection.kit,
                         trigger: 1
                     )
                 }
@@ -198,8 +220,8 @@ struct KitDetailView: View {
 
     private var triggerSelection: Binding<Int> {
         Binding(
-            get: { editor.selectedTrigger },
-            set: { editor.selectedTrigger = $0 }
+            get: { selection.trigger },
+            set: { selection.trigger = $0 }
         )
     }
 
@@ -273,11 +295,17 @@ struct FieldSection: View {
             VStack(spacing: 0) {
                 ForEach(Array(fields.enumerated()), id: \.element.id) { index, field in
                     if index > 0 { Divider() }
-                    // Tożsamość wiersza obejmuje adres, nie tylko pole.
-                    // Bez tego bufor edycji tekstu przeżyłby zmianę kitu i
-                    // niezatwierdzona nazwa z kitu 3 trafiłaby do kitu 7.
+                    // Tożsamość zależna od adresu TYLKO dla pól tekstowych.
+                    // One jedne mają bufor edycji, który bez tego przeżyłby
+                    // zmianę kitu i niezatwierdzona nazwa z kitu 3 trafiłaby
+                    // do kitu 7. Dla pól liczbowych taka tożsamość była czystą
+                    // stratą: zmiana numeru kitu albo triggera kasowała wiersz
+                    // i budowała go od zera, a pod spodem suwak i stepper to
+                    // widoki AppKit — ich tworzenie nie jest darmowe.
                     FieldRow(field: field, editor: editor, kit: kit, trigger: trigger)
-                        .id("\(field.id)#\(kit)#\(trigger)")
+                        .id(field.encoding.isTextual
+                            ? "\(field.id)#\(kit)#\(trigger)"
+                            : field.id)
                 }
             }
             .background(Color(nsColor: .controlBackgroundColor),

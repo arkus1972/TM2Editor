@@ -50,9 +50,9 @@ struct ContentView: View {
                 if let editor = model.editor {
                     switch model.selectedTab {
                     case .kits:
-                        KitBrowserView(editor: editor)
+                        KitBrowserView(editor: editor, selection: model.selection)
                     case .hex:
-                        HexInspectorView(editor: editor)
+                        HexInspectorView(editor: editor, selection: model.selection)
                     case .layout:
                         LayoutStatusView(editor: editor)
                     case .log:

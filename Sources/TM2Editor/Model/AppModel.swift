@@ -15,6 +15,14 @@ final class AppModel: ObservableObject {
     /// Log wspólny dla całej sesji.
     let log = EditorLog()
 
+    /// Zaznaczenie w interfejsie: wybrany kit i trigger.
+    ///
+    /// Zwykłe `let`, a nie `@Published` — inaczej zmiana zaznaczenia znowu
+    /// ogłaszałaby zmianę całego modelu aplikacji i wracalibyśmy do punktu
+    /// wyjścia. Widoki, które od zaznaczenia zależą, obserwują ten obiekt
+    /// same, bezpośrednio.
+    let selection = EditorSelection()
+
     /// Edytor otwartego pliku. `nil` = nic nie jest otwarte.
     ///
     /// Zmiany WEWNĄTRZ edytora są przekazywane dalej ręcznie. Bez tego pozycje
@@ -85,6 +93,7 @@ final class AppModel: ObservableObject {
             let file = try BackupFile(contentsOf: url, layout: layout)
             let editor = KitEditor(file: file, log: log)
             self.editor = editor
+            self.selection.reset()
             self.validationWarnings = file.validate()
 
             log.append(.info, "Wczytano \(url.lastPathComponent) "

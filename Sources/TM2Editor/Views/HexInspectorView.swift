@@ -9,6 +9,7 @@ import SwiftUI
 struct HexInspectorView: View {
 
     @ObservedObject var editor: KitEditor
+    @ObservedObject var selection: EditorSelection
     @State private var gotoText: String = ""
     @State private var scrollTarget: Int?
 
@@ -37,8 +38,8 @@ struct HexInspectorView: View {
             Divider().frame(height: 16)
 
             if let origin = editor.layout.kitBlockOrigin {
-                Button("Kit \(editor.selectedKit)") {
-                    scrollTarget = editor.layout.kitOrigin(kit: editor.selectedKit) ?? origin
+                Button("Kit \(selection.kit)") {
+                    scrollTarget = editor.layout.kitOrigin(kit: selection.kit) ?? origin
                 }
                 .help("Jump to the start of the selected kit block.")
             }

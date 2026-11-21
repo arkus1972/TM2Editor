@@ -72,11 +72,10 @@ final class KitEditor: ObservableObject {
     /// Ostatni błąd do pokazania użytkownikowi.
     @Published var lastError: String?
 
-    /// Aktualnie wybrany kit (numerowany od 1, jak w module).
-    @Published var selectedKit: Int = 1
-
-    /// Aktualnie wybrany trigger (numerowany od 1).
-    @Published var selectedTrigger: Int = 1
+    // Zaznaczenia (wybrany kit i trigger) tu NIE MA — siedzi w osobnym
+    // obiekcie `EditorSelection`. Dopóki było tutaj, przełączenie triggera
+    // ogłaszało zmianę dokumentu i przebudowywało całe okno. Edytor odpowiada
+    // za plik; co jest wybrane w interfejsie, to sprawa interfejsu.
 
     let log: EditorLog
 
@@ -156,10 +155,6 @@ final class KitEditor: ObservableObject {
 
     // MARK: - Odczyt
 
-    func value(of field: FieldSpec) -> FieldValue? {
-        file.value(of: field, kit: selectedKit, trigger: selectedTrigger)
-    }
-
     func value(of field: FieldSpec, kit: Int, trigger: Int) -> FieldValue? {
         file.value(of: field, kit: kit, trigger: trigger)
     }
@@ -183,11 +178,6 @@ final class KitEditor: ObservableObject {
     ///
     /// Zwraca `true`, jeśli zmiana doszła do skutku. Brak zmiany (ta sama
     /// wartość) też zwraca `true`, ale nie zaśmieca listy.
-    @discardableResult
-    func set(_ value: FieldValue, for field: FieldSpec) -> Bool {
-        set(value, for: field, kit: selectedKit, trigger: selectedTrigger)
-    }
-
     @discardableResult
     func set(_ value: FieldValue, for field: FieldSpec, kit: Int, trigger: Int) -> Bool {
         guard field.isMapped else {

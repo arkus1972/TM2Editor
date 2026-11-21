@@ -162,25 +162,26 @@ struct KitDetailView: View {
         )
     }
 
-    /// Jeden rekord w pliku = jedno gniazdo TRIG IN.
+    /// Cztery sloty brzmień na kit: head i rim obu gniazd TRIG IN.
     ///
-    /// Wcześniej te etykiety brzmiały `1A` i `1B` i opisywały dwa rekordy jako
-    /// dwie strony (head/rim) TEGO SAMEGO gniazda. To było zgadnięte i okazało
-    /// się nieprawdą: 2026-11-21 Arek ustawił Level na **TRIG IN 2** i wartość
-    /// wylądowała w rekordzie DRUGIM, a nie w „stronie B" rekordu pierwszego.
-    ///
-    /// Czyli rekordy odpowiadają gniazdom, a head i rim jednego gniazda muszą
-    /// siedzieć wewnątrz jednego rekordu (gdzie dokładnie — jeszcze nie wiemy).
-    /// Zła etykieta była groźna: kazała edytować drugi pad w przekonaniu, że
-    /// ustawia się rim pierwszego.
+    /// Historia tych etykiet to dobra ilustracja, po co jest mapowanie
+    /// różnicowe. Najpierw było `1A`/`1B` — zgadnięte, przy założeniu dwóch
+    /// slotów będących dwiema stronami jednego gniazda. Pomiar to obalił:
+    /// parametr ustawiony na TRIG IN 2 wylądował w slocie drugim, więc sloty
+    /// odpowiadały gniazdom. Potem okazało się, że slotów jest cztery, nie
+    /// dwa — 84-bajtowy rekord to dwa sloty po 42 B. Dopiero teraz etykiety
+    /// mówią to, co jest naprawdę w pliku.
     private func triggerLabel(_ index: Int) -> String {
-        "TRIG IN \(index)"
+        let jack = (index - 1) / 2 + 1
+        let side = (index - 1) % 2 == 0 ? "head" : "rim"
+        return "TRIG IN \(jack) · \(side)"
     }
 
     private var triggerHint: String {
-        "One record per TRIG IN jack. Head and rim of the same jack share "
-            + "a single record — where the rim settings sit inside it is not "
-            + "mapped yet."
+        "Each TRIG IN jack is dual-trigger: head is the tip signal, rim is "
+            + "the ring signal. Each of the four gets its own sound settings. "
+            + "Trigger input settings (sensitivity and so on) are global, not "
+            + "per kit — they follow the pad, not the sound."
     }
 }
 

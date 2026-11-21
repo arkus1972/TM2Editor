@@ -366,6 +366,41 @@ extension BackupLayout {
             )
         ]
 
+        // USTAWIENIA WEJŚĆ TRIGGEROWYCH — globalne, nie kitowe.
+        //
+        // Strefa 0x40…0x7B to cztery rekordy po 15 B, po jednym na trigger
+        // (1 head, 1 rim, 2 head, 2 rim). Że są globalne, wyszło dwojako:
+        // nie jadą razem z kitem przy przestawianiu kitów, a zmiana zrobiona
+        // na kicie 40 wylądowała w rekordzie pierwszym. To jest spójne z tym,
+        // jak działa sprzęt: czułość zależy od pada wpiętego w gniazdo,
+        // a nie od tego, jakie brzmienie akurat gra.
+        //
+        // Na razie znamy jedno pole w tym rekordzie — Sensitivity pod +0x02.
+        // Reszta (próg, krzywa, typ pada, mask time, retrig cancel) czeka
+        // na pomiary; każde nowe pole dopisuje się tu czterema wpisami.
+        let trigUstawieniaOd = 0x40
+        let trigUstawieniaKrok = 15
+        let nazwyTrigerow = ["TRIG IN 1 head", "TRIG IN 1 rim",
+                             "TRIG IN 2 head", "TRIG IN 2 rim"]
+
+        for (numer, nazwa) in nazwyTrigerow.enumerated() {
+            layout.globalFields.append(
+                FieldSpec(
+                    id: "trigset.\(numer + 1).sensitivity",
+                    label: "Sensitivity — \(nazwa)",
+                    scope: .global,
+                    group: .triggerInput,
+                    offset: trigUstawieniaOd + numer * trigUstawieniaKrok + 0x02,
+                    encoding: .unsigned(min: 1, max: 32),
+                    note: "Zmierzone 2026-11-21: maksimum na wyświetlaczu to 32"
+                        + " i w pliku też 32, czyli skala 1:1. Dolna granica"
+                        + " NIEZMIERZONA — przyjęte 1, bo tak zwykle u Rolanda."
+                        + " Ustawienie globalne modułu, nie kitu: zmiana zrobiona"
+                        + " przy wybranym kicie 40 trafiła w ten sam bajt."
+                )
+            )
+        }
+
         return layout
     }
 
@@ -397,31 +432,42 @@ extension BackupLayout {
         // Blok kitów — origin i stride potwierdzone dwukrotnie: na polu nazwy
         // (100 kolejnych nazw kitów) i na prawdziwym parametrze (poziom,
         // kity 1 i 2).
-        layout.kitBlockOrigin = 0x40     // 64
+        // UKŁAD PRZEBUDOWANY 2026-11-21 — patrz dziennik, wpis (s).
+        //
+        // Wcześniej przyjmowaliśmy, że blok kitu zaczyna się pod 0x40, a nazwa
+        // leży w nim pod +0x3C. Adresy wychodziły poprawne (0x40 + 0x3C = 0x7C),
+        // ale granice bloku były przesunięte: te 60 bajtów przed nazwą NIE
+        // należy do kitu. Dowód z dwóch stron:
+        //   1. Przy przestawianiu kitów miejscami na module ta strefa NIE
+        //      jechała razem z kitem (nazwa i rekordy triggerów jechały).
+        //   2. Zmiana Sensitivity zrobiona na kicie 40 wylądowała właśnie tam,
+        //      pod 0x42 — czyli to ustawienie globalne modułu, nie kitu.
+        //
+        // Blok kitu zaczyna się więc od nazwy, pod 0x7C, i domyka się co do
+        // bajtu: 66 B (nazwa + ustawienia kitu) + 4 × 42 B = 234 = krok kitu.
+        layout.kitBlockOrigin = 0x7C     // 124 -- początek bloku kitu = pole nazwy
         layout.kitStride = 234           // 0xEA
         layout.kitCount = 99
 
-        // Rekord triggera — origin i stride potwierdzone na polach Instrument
-        // i Level, na dwóch triggerach.
-        layout.triggerBlockOrigin = 0x7E   // 126 -- początek rekordu = pole Instrument
-        layout.triggerStride = 84          // 0x54
-
-        // UWAGA BEZPIECZEŃSTWA — dlaczego triggerCount = 2, a nie 4:
-        // fakty sprzętowe (2 × TRIG IN, każde dual-trigger) sugerują do 4
-        // triggerów na kit, ale przy origin=0x7E i stride=84 trzeci rekord,
-        // liczony tym samym wzorem, wypadłby pod 0x7E + 2×84 = 0x126 (294) —
-        // czyli 234 (kitStride) + 60 (0x3C, offset nazwy kitu) w głąb
-        // NASTĘPNEGO kitu, dokładnie na jego polu nazwy. Pole "Instrument"
-        // tego rzekomego trzeciego triggera nałożyłoby się więc na nazwę
-        // kitu sąsiada. Zmierzone bezpośrednio, nie zgadnięte — patrz
-        // `testHypotheticalThirdTriggerWouldOverrunNextKitName` w BackupFileTests.
-        // Najpewniejsza hipoteza: head/rim tego samego wejścia TRIG IN siedzi
-        // jako pole WEWNĄTRZ jednego rekordu (zdjęcie panelu: RIM = SHIFT +
-        // ten sam przycisk TRIG IN, nie osobny przycisk), a nie jako osobny
-        // rekord. Dopóki różnicowo nie znajdziemy inaczej, triggerCount ZOSTAJE
-        // na 2 — podniesienie tej liczby bez ponownego zmierzenia stride'u
-        // pisałoby w dane cudzego kitu.
-        layout.triggerCount = 2
+        // CZTERY sloty brzmień na kit, po 42 B, jeden za drugim.
+        //
+        // To zastępuje poprzedni model (2 rekordy po 84 B). Okazało się, że
+        // rekord 84-bajtowy to po prostu DWA sloty po 42: head i rim tego
+        // samego gniazda. Potwierdzone odczytem pliku przy tym założeniu —
+        // fabryczny kit 1 pokazuje wtedy we wszystkich czterech slotach
+        // poziom 90, pitch 0 i pan dokładnie na środku, a w kicie 40 każdy
+        // zmierzony dotąd parametr siedzi tam, gdzie powinien.
+        //
+        // Kolejność slotów: 1 = TRIG IN 1 head, 2 = TRIG IN 1 rim,
+        //                   3 = TRIG IN 2 head, 4 = TRIG IN 2 rim.
+        //
+        // Dawna obawa, która kazała trzymać triggerCount = 2, jest tym samym
+        // rozwiązana: cztery sloty mieszczą się w kicie bez wchodzenia
+        // w sąsiada, bo mają po 42 B, a nie po 84.
+        //   0x42 + 4 × 42 = 0xEA = 234 = dokładnie krok kitu.
+        layout.triggerBlockOrigin = 0x42   // 66 -- względem początku bloku kitu
+        layout.triggerStride = 42          // 0x2A
+        layout.triggerCount = 4
 
         // Suma kontrolna — potwierdzona bezpośrednio: ostatnie 16 B pliku to
         // MD5 wszystkich poprzedzających bajtów (coverage: nil = domyślnie
@@ -435,7 +481,11 @@ extension BackupLayout {
 
         for index in layout.kitFields.indices {
             guard layout.kitFields[index].id == "kit.name" else { continue }
-            layout.kitFields[index].offset = 0x3C   // 60, względem początku kitu
+            // Nazwa leży teraz na SAMYM POCZĄTKU bloku kitu, bo blok zaczyna
+            // się właśnie od niej (0x7C). Wcześniej było tu 0x3C względem
+            // błędnie przyjętego początku pod 0x40 — adres bezwzględny wychodził
+            // ten sam, zmieniła się tylko granica bloku.
+            layout.kitFields[index].offset = 0
             // Nazwa jest UTF-16LE, nie ASCII — bez tego przeszukiwanie stringów
             // widziało tylko nagłówek pliku, bo każdy znak jest przeplatany
             // zerowym bajtem. 11 znaków × 2 B = 22 B.

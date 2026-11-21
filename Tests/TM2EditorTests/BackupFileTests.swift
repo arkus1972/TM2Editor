@@ -212,30 +212,58 @@ final class BackupFileTests: XCTestCase {
 
     // MARK: - Bezpieczeństwo układu potwierdzonego na sprzęcie
 
-    /// Dokumentuje i pilnuje decyzji `triggerCount = 2` w `mapped2026_09_02`.
-    /// Fakty sprzętowe mówią o do 4 triggerach (2× TRIG IN, dual-trigger), ale
-    /// przy zmierzonym origin/stride trzeci rekord nałożyłby się na nazwę
-    /// następnego kitu. Jeśli ktoś kiedyś podniesie `triggerCount` do 4 bez
-    /// ponownego zmierzenia stride'u, ten test ma to złapać, zanim złapie to
-    /// użytkownik nadpisując cudzy kit.
-    func testHypotheticalThirdTriggerWouldOverrunNextKitName() {
-        var layout = BackupLayout.mapped2026_09_02
-        layout.triggerCount = 4   // celowo błędne, tylko na potrzeby tego testu
+    /// Pilnuje, żeby cztery sloty brzmień mieściły się w bloku kitu.
+    ///
+    /// To jest następca testu, który wcześniej bronił `triggerCount = 2`.
+    /// Tamten opisywał model obalony 2026-11-21 (dwa rekordy po 84 B);
+    /// dziś wiemy, że slotów są cztery po 42 B i mieszczą się bez konfliktu.
+    /// Pilnowana zasada została jednak ta sama i jest to zasada bezpieczeństwa:
+    /// **ostatni slot nie może wyjść poza blok kitu**, bo zapis wszedłby
+    /// w dane sąsiada.
+    func testFourTriggerSlotsFitExactlyInsideKitBlock() {
+        let layout = BackupLayout.mapped2026_09_02
 
-        guard let thirdTriggerOrigin = layout.triggerOrigin(kit: 1, trigger: 3),
-              let kit2Origin = layout.kitOrigin(kit: 2),
-              let nameOffset = layout.kitFields.first(where: { $0.id == "kit.name" })?.offset
+        guard let kitStride = layout.kitStride,
+              let trigOrigin = layout.triggerBlockOrigin,
+              let trigStride = layout.triggerStride
         else {
-            return XCTFail("Brakuje danych w mapped2026_09_02 -- sprawdź, czy"
-                + " kitBlockOrigin/kitStride/triggerBlockOrigin/triggerStride"
-                + " i offset kit.name są nadal ustawione.")
+            return XCTFail("Brakuje geometrii w mapped2026_09_02.")
         }
 
-        XCTAssertEqual(thirdTriggerOrigin, kit2Origin + nameOffset,
-            "Trzeci rekord triggera (stride 84 B od origin 0x7E) wypada dokładnie"
-            + " na polu nazwy następnego kitu -- to jest POWÓD, dla którego"
-            + " mapped2026_09_02 trzyma triggerCount=2. Nie podnoś tej liczby"
-            + " bez ponownego zmierzenia stride'u na module.")
+        XCTAssertEqual(layout.triggerCount, 4,
+            "Cztery sloty: head i rim obu gniazd TRIG IN.")
+
+        let koniecOstatniegoSlotu = trigOrigin + layout.triggerCount * trigStride
+        XCTAssertEqual(koniecOstatniegoSlotu, kitStride,
+            "Sloty mają domykać blok kitu co do bajtu: 0x42 + 4×42 = 234.")
+
+        // Pierwszy slot następnego kitu musi wypaść dokładnie tam, gdzie
+        // zaczyna się następny blok -- czyli na jego nazwie, nie w środku
+        // danych poprzedniego.
+        guard let slot1Kit2 = layout.triggerOrigin(kit: 2, trigger: 1),
+              let kit2 = layout.kitOrigin(kit: 2) else {
+            return XCTFail("Nie da się policzyć adresów dla kitu 2.")
+        }
+        XCTAssertEqual(slot1Kit2, kit2 + trigOrigin)
+    }
+
+    /// Adresy zmierzone na module muszą wychodzić z geometrii co do bajtu.
+    /// Liczby wzięte z realnych pomiarów na kicie 40, nie z rachunku na kartce.
+    func testMeasuredAddressesForKit40() {
+        let layout = BackupLayout.mapped2026_09_02
+
+        XCTAssertEqual(layout.kitOrigin(kit: 40), 9250,
+            "Nazwa kitu 40 -- widoczna w edytorze jako 0x2422 (9250).")
+        XCTAssertEqual(layout.triggerOrigin(kit: 40, trigger: 1), 9316,
+            "TRIG IN 1 head -- tam siedzi Instrument zmierzony we wrześniu.")
+        XCTAssertEqual(layout.triggerOrigin(kit: 40, trigger: 3), 9400,
+            "TRIG IN 2 head -- tam wylądował Level=7 z pomiaru 2026-11-21.")
+
+        guard let level = layout.triggerFields.first(where: { $0.id == "trig.level" }),
+              let offset = layout.absoluteOffset(for: level, kit: 40, trigger: 3) else {
+            return XCTFail("Brak pola trig.level albo nie da się policzyć adresu.")
+        }
+        XCTAssertEqual(offset, 9404, "Zmierzony adres Level dla TRIG IN 2 head.")
     }
 
     // MARK: - Liczby 16-bit ze znakiem (Pitch w prawdziwym pliku)
@@ -282,11 +310,9 @@ final class BackupFileTests: XCTestCase {
 
     // MARK: - Zgodność layoutu ze zmierzonymi offsetami
 
-    /// Pilnuje, żeby offsety i kodowania zmierzone na module nie rozjechały się
-    /// z kodem przy przyszłych zmianach. Każda liczba tutaj ma pokrycie
-    /// w dzienniku mapowania — jeśli test zacznie padać, to znaczy, że ktoś
-    /// zmienił layout bez ponownego pomiaru.
-    func testMappedLayoutMatchesMeasuredTriggerRecord() {
+    /// Offsety pól wewnątrz slotu brzmienia. Liczby mają pokrycie w dzienniku
+    /// mapowania — jeśli test zacznie padać, ktoś zmienił layout bez pomiaru.
+    func testMappedLayoutMatchesMeasuredSoundSlot() {
         let layout = BackupLayout.mapped2026_09_02
 
         func field(_ id: String) -> FieldSpec? {
@@ -305,25 +331,42 @@ final class BackupFileTests: XCTestCase {
         XCTAssertEqual(field("trig.loop")?.encoding, .boolean)
         XCTAssertEqual(field("trig.offset")?.encoding, .unsigned16LE(min: 0, max: 3000))
 
-        // Żadne z pól rekordu nie może wystawać poza rekord (84 B) — gdyby
-        // wystawało, zapis wszedłby w sąsiedni trigger albo w następny kit.
+        // Żadne pole nie może wystawać poza 42-bajtowy slot -- gdyby wystawało,
+        // zapis wszedłby w sąsiedni slot (czyli w rim zamiast w head).
         for spec in layout.triggerFields {
             guard let offset = spec.offset else { continue }
-            XCTAssertLessThanOrEqual(offset + spec.encoding.byteLength, layout.triggerStride ?? 0,
-                "Pole \(spec.id) wychodzi poza rekord triggera.")
+            XCTAssertLessThanOrEqual(offset + spec.encoding.byteLength,
+                                     layout.triggerStride ?? 0,
+                                     "Pole \(spec.id) wychodzi poza slot brzmienia.")
         }
     }
 
-    /// `unmappedTM2` ma zostać nietknięty — zależą od niego pozostałe testy,
-    /// a także tryb pracy "jeszcze nic nie wiem o formacie".
+    /// Ustawienia wejść triggerowych są GLOBALNE, nie kitowe — po cztery
+    /// rekordy po 15 B pod 0x40. Zmierzone: Sensitivity pod +0x02.
+    func testGlobalTriggerSettingsAreMapped() {
+        let layout = BackupLayout.mapped2026_09_02
+        let oczekiwane = [0x42, 0x51, 0x60, 0x6F]
+
+        for (numer, adres) in oczekiwane.enumerated() {
+            let id = "trigset.\(numer + 1).sensitivity"
+            let pole = layout.globalFields.first(where: { $0.id == id })
+            XCTAssertEqual(pole?.offset, adres,
+                "Sensitivity \(id) ma siedzieć pod 0x\(String(adres, radix: 16)).")
+            XCTAssertEqual(pole?.scope, .global,
+                "Ustawienia wejścia nie zależą od kitu.")
+        }
+    }
+
+    /// `unmappedTM2` ma zostać nietknięty — zależą od niego pozostałe testy
+    /// i tryb pracy „jeszcze nic nie wiem o formacie".
     func testUnmappedLayoutStaysUnmapped() {
         let layout = BackupLayout.unmappedTM2
         XCTAssertNil(layout.triggerFields.first(where: { $0.id == "trig.pitch" })?.offset)
         XCTAssertNil(layout.triggerFields.first(where: { $0.id == "trig.pan" })?.offset)
         XCTAssertNil(layout.triggerFields.first(where: { $0.id == "trig.loop" }),
                      "trig.loop ma istnieć tylko w layoucie zmierzonym.")
-        XCTAssertNil(layout.triggerFields.first(where: { $0.id == "trig.offset" }),
-                     "trig.offset ma istnieć tylko w layoucie zmierzonym.")
+        XCTAssertTrue(layout.globalFields.allSatisfy { !$0.id.hasPrefix("trigset.") },
+                      "Ustawienia wejść mają istnieć tylko w layoucie zmierzonym.")
     }
 
     // MARK: - Wyświetlanie wartości

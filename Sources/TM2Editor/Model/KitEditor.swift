@@ -287,6 +287,7 @@ final class KitEditor: ObservableObject {
         // niezatwierdzony — inaczej wróciłby przy najbliższym zapisie
         // i odtworzył zmianę, którą użytkownik właśnie wycofał.
         niezatwierdzonyTekst.removeAll()
+        odswiezZnacznikTekstu()
 
         // Twardy ogranicznik pętli, niezależny od tego, czy `undo()` zdejmuje
         // zmianę ze stosu. Lepiej wyjść z niepełnym cofnięciem i zapisać to
@@ -327,6 +328,21 @@ final class KitEditor: ObservableObject {
     private var niezatwierdzonyTekst: [String: (pole: FieldSpec, kit: Int,
                                                 trigger: Int, tekst: String)] = [:]
 
+    /// Czy w buforach czeka jakiś tekst. To jedyna rzecz z rejestru, która
+    /// musi być widoczna dla widoków: bez niej przycisk „Save As…" zostaje
+    /// wyszarzony po samej zmianie nazwy i nie da się jej w ogóle zapisać.
+    ///
+    /// Ustawiane TYLKO przy faktycznej zmianie wartości. `@Published` ogłasza
+    /// zapis niezależnie od tego, czy coś się zmieniło, więc przypisywanie
+    /// `true` przy każdym naciśnięciu klawisza przebudowywałoby okno przy
+    /// każdej literze — czyli dokładnie to, przed czym bufor miał chronić.
+    @Published private(set) var hasPendingText: Bool = false
+
+    private func odswiezZnacznikTekstu() {
+        let teraz = !niezatwierdzonyTekst.isEmpty
+        if hasPendingText != teraz { hasPendingText = teraz }
+    }
+
     /// Klucz jest trójką pole-kit-trigger, bo ten sam `FieldSpec` obsługuje
     /// wszystkie kity i triggery.
     private func kluczTekstu(_ field: FieldSpec, kit: Int, trigger: Int) -> String {
@@ -337,10 +353,12 @@ final class KitEditor: ObservableObject {
                              kit: Int, trigger: Int) {
         niezatwierdzonyTekst[kluczTekstu(field, kit: kit, trigger: trigger)] =
             (field, kit, trigger, tekst)
+        odswiezZnacznikTekstu()
     }
 
     func forgetPendingText(for field: FieldSpec, kit: Int, trigger: Int) {
         niezatwierdzonyTekst[kluczTekstu(field, kit: kit, trigger: trigger)] = nil
+        odswiezZnacznikTekstu()
     }
 
     /// Zapisuje wszystko, co czeka w buforach pól tekstowych.
@@ -354,6 +372,7 @@ final class KitEditor: ObservableObject {
             niezatwierdzonyTekst[$0]
         }
         niezatwierdzonyTekst.removeAll()
+        odswiezZnacznikTekstu()
 
         var zapisane = 0
         for wpis in oczekujace {

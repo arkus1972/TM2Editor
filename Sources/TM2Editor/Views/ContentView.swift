@@ -157,10 +157,8 @@ struct HeaderBar: View {
 
             Spacer()
 
-            if editor.hasUnsavedChanges {
-                Label("\(editor.changes.count) unsaved change"
-                        + (editor.changes.count == 1 ? "" : "s"),
-                      systemImage: "pencil.circle.fill")
+            if editor.hasUnsavedChanges || editor.hasPendingText {
+                Label(opisNiezapisanych, systemImage: "pencil.circle.fill")
                     .font(.caption)
                     .foregroundStyle(.orange)
             }
@@ -184,10 +182,23 @@ struct HeaderBar: View {
             Button("Save As…") {
                 model.presentSavePanel()
             }
-            .disabled(!editor.hasUnsavedChanges)
+            // Tekst wpisany, a jeszcze niezatwierdzony Enterem, też jest
+            // powodem do zapisu. Bez tego po samej zmianie nazwy kitu
+            // przycisk zostawał wyszarzony i nazwy nie dało się zapisać.
+            .disabled(!editor.hasUnsavedChanges && !editor.hasPendingText)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
+    }
+
+    /// Plakietka ma mówić prawdę także wtedy, gdy jedyną zmianą jest tekst
+    /// wpisany w pole i jeszcze niezatwierdzony — wtedy licznik zmian stoi
+    /// na zerze, a zapisać i tak jest co.
+    private var opisNiezapisanych: String {
+        let liczba = editor.changes.count
+        guard liczba > 0 else { return "unsaved text edit" }
+        let tekst = "\(liczba) unsaved change" + (liczba == 1 ? "" : "s")
+        return editor.hasPendingText ? tekst + " + text being typed" : tekst
     }
 
     private var fileName: String {

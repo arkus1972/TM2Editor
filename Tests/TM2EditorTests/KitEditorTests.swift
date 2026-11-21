@@ -398,4 +398,33 @@ final class KitEditorTests: XCTestCase {
         XCTAssertTrue(editor.changes.isEmpty,
                       "Porzucony bufor nie może trafić do pliku.")
     }
+
+    /// Przycisk „Save As…" jest wyszarzony, dopóki nie ma czego zapisać.
+    /// Sam wpisany tekst, jeszcze bez Entera, też jest powodem do zapisu —
+    /// inaczej po samej zmianie nazwy kitu nie dało się jej zapisać w ogóle.
+    func testSamWpisanyTekstWystarczyZebyBylCoZapisac() {
+        let editor = makeEditor()
+        let pole = nameField(editor)
+        XCTAssertFalse(editor.hasUnsavedChanges)
+        XCTAssertFalse(editor.hasPendingText)
+
+        editor.rememberPendingText("DUPAKIT", for: pole, kit: 99, trigger: 1)
+        XCTAssertTrue(editor.hasPendingText,
+                      "Wpisany tekst ma odblokować zapis.")
+        XCTAssertFalse(editor.hasUnsavedChanges,
+                       "...ale sam w sobie nie jest jeszcze zmianą na liście.")
+
+        editor.forgetPendingText(for: pole, kit: 99, trigger: 1)
+        XCTAssertFalse(editor.hasPendingText)
+    }
+
+    /// „Cofnij wszystko" ma gasić także znacznik wpisanego tekstu.
+    func testCofnieciewszystkiegoGasiZnacznikTekstu() {
+        let editor = makeEditor()
+        editor.rememberPendingText("ABC", for: nameField(editor), kit: 2, trigger: 1)
+        XCTAssertTrue(editor.hasPendingText)
+
+        editor.revertAll()
+        XCTAssertFalse(editor.hasPendingText)
+    }
 }

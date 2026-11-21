@@ -529,6 +529,38 @@ final class BackupFileTests: XCTestCase {
         XCTAssertNil(BackupFile(bytes: bytes, layout: layout).kitSelectedOnModule)
     }
 
+    /// Nazwa backupu z nagłówka: osiem znaków ASCII pod 0x0A, dopełnianych
+    /// spacjami — tak samo, jak moduł trzyma krótkie nazwy kitów.
+    func testBackupNameIsReadAndWrittenWithSpacePadding() throws {
+        let layout = BackupLayout.mapped2026_09_02
+        guard let pole = layout.globalFields.first(where: { $0.id == "file.backupName" }) else {
+            XCTFail("Brak pola file.backupName.")
+            return
+        }
+        XCTAssertEqual(pole.offset, 0x0A)
+        XCTAssertEqual(pole.encoding, .ascii(length: 8))
+
+        var bytes = [UInt8](repeating: 0, count: 124_748)
+        // „TM-2" + znacznik „BK" + nazwa „Backup  "
+        bytes.replaceSubrange(0..<4, with: Array("TM-2".utf8))
+        bytes.replaceSubrange(8..<10, with: Array("BK".utf8))
+        bytes.replaceSubrange(0x0A..<0x12, with: Array("Backup  ".utf8))
+
+        var plik = BackupFile(bytes: bytes, layout: layout)
+        XCTAssertEqual(plik.value(of: pole)?.textValue, "Backup")
+
+        try plik.setValue(.text("Koncert"), for: pole)
+        XCTAssertEqual(plik.value(of: pole)?.textValue, "Koncert")
+        // Dopełnienie spacją, nie zerem — tak robi moduł.
+        XCTAssertEqual(plik.byte(at: 0x11), 0x20)
+        // Znacznik „BK" przed nazwą nie może zostać naruszony.
+        XCTAssertEqual(plik.byte(at: 0x08), UInt8(ascii: "B"))
+        XCTAssertEqual(plik.byte(at: 0x09), UInt8(ascii: "K"))
+
+        // Dziewięć znaków się nie zmieści i ma być odmowa, nie obcięcie.
+        XCTAssertThrowsError(try plik.setValue(.text("ZaDlugaNazwa"), for: pole))
+    }
+
     /// `unmappedTM2` ma zostać nietknięty — zależą od niego pozostałe testy
     /// i tryb pracy „jeszcze nic nie wiem o formacie".
     func testUnmappedLayoutStaysUnmapped() {

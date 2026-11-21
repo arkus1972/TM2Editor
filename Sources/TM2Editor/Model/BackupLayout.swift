@@ -428,6 +428,38 @@ extension BackupLayout {
         // nie da się rozdzielić „maksimum parametru" od „wartości domyślnej
         // dla tego typu". Dlatego dolne i górne granice są brane wprost
         // z pomiaru, bez zaokrąglania w stronę ładnych liczb.
+        // Nazwa backupu — ta, którą moduł pokazuje na liście przy BACKUP LOAD.
+        //
+        // Wyszła z oglądania nagłówka, nie z pomiaru różnicowego. Po magicznym
+        // „TM-2" stoi znacznik „BK", a od 0x0A idzie osiem znaków ASCII
+        // dopełnionych spacjami. Potwierdzenie przyszło z dwóch stron: bajt
+        // 0x0A był jednym z dwóch nierozpoznanych w całym pliku (0x42 „B"
+        // w jednym backupie, 0x43 „C" w innym — jedno naciśnięcie [+] przy
+        // zmianie nazwy), a Arek potwierdził, że nazwę backupu zmieniał.
+        //
+        // Dopełnienie spacją zgadza się z tym, jak moduł trzyma krótkie nazwy
+        // kitów (sprawdzone: „Cowbells   " ma 0x20 na końcu, nie zera), więc
+        // nasz zapis pól ASCII robi dokładnie to samo co sprzęt.
+        //
+        // DŁUGOŚĆ 8 JEST HIPOTEZĄ. Po ósmym znaku stoją dwa bajty 0x20,
+        // a potem zera — czyli pole może być dłuższe, a te spacje to już
+        // dopełnienie czegoś innego. Dlatego trzymamy ostrożniejszą wartość:
+        // za krótkie pole odmówi dłuższej nazwy (błąd widoczny, odwracalny),
+        // za długie wpisałoby znaki w sąsiednie, nieznane bajty nagłówka.
+        layout.globalFields.append(
+            FieldSpec(
+                id: "file.backupName",
+                label: "Backup Name",
+                scope: .global,
+                group: .system,
+                offset: 0x0A,
+                encoding: .ascii(length: 8),
+                note: "Nazwa, pod którą moduł pokazuje ten backup na liście"
+                    + " BACKUP LOAD. Osiem znaków ASCII, dopełnianych spacjami."
+                    + " Długość przyjęta ostrożnie — patrz komentarz w kodzie."
+            )
+        )
+
         // Wskaźnik bieżącego kitu. Zmierzony 2026-09-04: w teście zrobionym
         // na kicie 40 ten bajt pokazał 0x27, czyli 39 — numer kitu liczony
         // od zera. Wcześniejsze próbki (0 i 1) nie pozwalały tego odróżnić

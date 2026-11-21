@@ -382,16 +382,29 @@ extension BackupLayout {
         // pierwszego rekordu — pozostałe trzy rekordy nie drgnęły, co
         // potwierdza i granice rekordu, i to, że ustawienia są per trigger.
         //
-        //   +0x00  Input (HEAD&RIM / PADx2) -- nietknięte w teście
-        //   +0x01  Type            1…31   <- NIE wystawiamy do edycji, patrz niżej
-        //   +0x02  Sensitivity     1…32
-        //   +0x03  Threshold       0…31
-        //   +0x04  Curve           0…6
-        //   +0x05  Retrig Cancel   16…40  <- zakres podejrzany, patrz niżej
-        //   +0x06  Rim Gain        1…16
-        //   +0x07  H/R Adjust      ?      <- w teście „max" nie drgnęło
-        //   +0x08  +0x09  +0x0A    20/0…80  <- XTLK Cancel, Noise Cancel i coś trzeciego
+        // Odczyty z wyświetlacza modułu (Arek, przy ustawieniu na maksimum)
+        // pozwoliły dopasować skale i OBALIŁY pierwotne przypisanie H/R Adjust,
+        // które zgadywałem z kolejności menu:
+        //
+        //   +0x00  Input (HEAD&RIM / PADx2)   nietknięte w teście
+        //   +0x01  Type            raw 1…31   <- NIE do edycji, patrz niżej
+        //   +0x02  Sensitivity     raw 1…32   wyświetlacz 1:1
+        //   +0x03  Threshold       raw 0…31   wyświetlacz 1:1 (31 = 31)
+        //   +0x04  Curve           raw 0…6    raw 6 = LOUD2, czyli ostatnia
+        //   +0x05  Retrig Cancel   raw 16…40  <- NIE do edycji: skala nieliniowa
+        //   +0x06  Rim Gain        raw 1…16   wyświetlacz raw/2 (16 = „8.0")
+        //   +0x07  ?               zmienia się RAZEM Z TYPE, nie ruszany ręcznie
+        //   +0x08  H/R Adjust      raw 20…80  wyświetlacz 1:1 (80 = 80)
+        //   +0x09  +0x0A           raw 0…80   XTLK Cancel i Noise Cancel,
+        //                                     kolejność nierozstrzygnięta
         //   +0x0B  ?               w bazie 2, w obu testach 0
+        //
+        // Dwa pola świadomie zostają poza edycją — `Type` i `Retrig Cancel`.
+        // Przy Retrig Cancel wyświetlacz pokazał 16 przy surowym 40, a 1 przy
+        // surowym 16: 15 kroków na wyświetlaczu rozkłada się na 24 kroki
+        // w pliku, więc skala nie jest liniowa i najpewniej jest tablicą
+        // czasów. Wpisanie wartości spoza tej tablicy dałoby w module stan,
+        // którego sam nigdy by nie ustawił.
         //
         // `Type` zostaje świadomie POZA edycją. Instrukcja mówi, a Arek
         // potwierdził z własnej praktyki, że zmiana typu pada przestawia
@@ -413,38 +426,41 @@ extension BackupLayout {
                              "TRIG IN 2 head", "TRIG IN 2 rim"]
 
         /// Pola rekordu ustawień wejścia: offset w rekordzie, etykieta,
-        /// zakres i notatka.
-        let polaWejscia: [(Int, String, Int, Int, String)] = [
-            (0x02, "Sensitivity", 1, 32,
-             "Maksimum potwierdzone na wyświetlaczu (32 = 32, skala 1:1)."
-                + " Minimum potwierdzone pomiarem `trigger_min.bin`: 1."),
-            (0x03, "Threshold", 0, 31,
-             "Zakres z pary max/min: 0…31. Odczyt z wyświetlacza"
-                + " niepotwierdzony, więc skala może nie być 1:1."),
-            (0x04, "Curve", 0, 6,
-             "Zakres z pary max/min: 0…6, czyli siedem krzywych. Stara"
-                + " instrukcja wymienia pięć (LINEAR, LOG1, LOG2, LOUD1,"
-                + " LOUD2) — firmware Arka ma ich więcej. Nazwy nieznane,"
-                + " więc pole jest liczbą, a nie listą wyboru."),
-            (0x05, "Retrig Cancel", 16, 40,
-             "UWAGA: zakres 16…40 wzięty wprost z pomiaru i jest podejrzany"
-                + " — u Rolanda ten parametr ma zwykle 1…16. Najpewniej"
-                + " widzimy tu wartości zależne od typu pada, a nie czyste"
-                + " granice parametru. Do przemierzenia przy stałym Type."),
-            (0x06, "Rim Gain", 1, 16,
-             "Zakres z pary max/min: 1…16. Dotyczy obręczy, ale w pliku"
-                + " siedzi w rekordzie konkretnego triggera, nie gniazda."),
+        /// identyfikator, etykietę, zakres, sposób wyświetlania i notatkę.
+        let polaWejscia: [(Int, String, String, Int, Int, FieldDisplay?, String)] = [
+            (0x02, "sensitivity", "Sensitivity", 1, 32, nil,
+             "Skala 1:1 — wyświetlacz 32 przy surowym 32. Minimum"
+                + " potwierdzone pomiarem `trigger_min.bin`: 1."),
+            (0x03, "threshold", "Threshold", 0, 31, nil,
+             "Skala 1:1 — wyświetlacz 31 przy surowym 31. Zakres 0…31"
+                + " z pary max/min."),
+            (0x04, "curve", "Curve", 0, 6, nil,
+             "Siedem krzywych, raw 0…6. Zmierzone: raw 6 to LOUD2, czyli"
+                + " ostatnia pozycja listy. Stara instrukcja wymienia tylko"
+                + " pięć krzywych (LINEAR, LOG1, LOG2, LOUD1, LOUD2) —"
+                + " firmware ma ich więcej, a nazw dwóch środkowych nie"
+                + " znamy. Dlatego pole jest liczbą, a nie listą wyboru:"
+                + " lista z dziurami kłamałaby bardziej niż goły numer."),
+            (0x06, "rimGain", "Rim Gain", 1, 16, .scaled(divisor: 2, fractionDigits: 1, unit: ""),
+             "Wyświetlacz pokazuje połowę wartości surowej: raw 16 to „8.0”."
+                + " Zakres 1…16 w pliku, czyli 0,5…8,0 na ekranie. Dotyczy"
+                + " obręczy, ale w pliku siedzi w rekordzie konkretnego"
+                + " triggera, nie gniazda."),
+            (0x08, "hrAdjust", "H/R Adjust", 20, 80, nil,
+             "Skala 1:1 — wyświetlacz 80 przy surowym 80. To NIE jest +0x07,"
+                + " jak zgadywałem z kolejności menu: tam maksimum nie ruszyło"
+                + " bajtu wcale. Odczyt z wyświetlacza przypisał ten parametr"
+                + " tutaj. Minimum surowe 20."),
         ]
 
         for (numer, nazwa) in nazwyTrigerow.enumerated() {
             let baza = trigUstawieniaOd + numer * trigUstawieniaKrok
             // Nazwy `dolny`/`gorny`, a nie `min`/`max` — te drugie zasłoniłyby
             // globalne funkcje `min`/`max` Swifta w całym ciele pętli.
-            for (wRekordzie, etykieta, dolny, gorny, notatka) in polaWejscia {
+            for (wRekordzie, nazwaPola, etykieta, dolny, gorny, pokazJako, notatka) in polaWejscia {
                 layout.globalFields.append(
                     FieldSpec(
-                        id: "trigset.\(numer + 1)."
-                            + etykieta.lowercased().replacingOccurrences(of: " ", with: ""),
+                        id: "trigset.\(numer + 1).\(nazwaPola)",
                         label: "\(etykieta) — \(nazwa)",
                         scope: .global,
                         group: .triggerInput,
@@ -453,7 +469,8 @@ extension BackupLayout {
                         note: notatka
                             + " Ustawienie globalne modułu, nie kitu: zmiana"
                             + " zrobiona przy wybranym kicie 40 trafiła"
-                            + " w ten sam bajt."
+                            + " w ten sam bajt.",
+                        display: pokazJako
                     )
                 )
             }

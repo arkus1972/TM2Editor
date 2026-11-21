@@ -154,7 +154,11 @@ enum FieldDisplay: Codable, Equatable {
             // prawdą o zawartości pliku.
             guard divisor > 0 else { return String(value) }
             let scaled = Double(value) / Double(divisor)
-            return String(format: "%.\(fractionDigits)f %@", scaled, unit)
+            let liczba = String(format: "%.\(fractionDigits)f", scaled)
+            // Pusta jednostka to normalny przypadek: Rim Gain pokazuje samo
+            // „8.0", bez niczego dalej. Bez tego warunku zostawałaby wisząca
+            // spacja na końcu wartości.
+            return unit.isEmpty ? liczba : "\(liczba) \(unit)"
         }
     }
 }

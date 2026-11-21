@@ -104,7 +104,7 @@
         1,
         31
       ],
-      "opis": "TRIG IN 1 head. Type (typ pada). Zakres 1..31 z pary max/min. NIE WYSTAWIONY DO EDYCJI: zmiana typu przestawia w module wartosci pozostalych parametrow, a edytor pliku nie zna tych wartosci domyslnych. Lista nazw typow nieznana."
+      "opis": "TRIG IN 1 head. Type (typ pada), raw 1..31. NIE WYSTAWIONY DO EDYCJI: zmiana typu przestawia w module wartosci pozostalych parametrow (potwierdzone i w instrukcji, i przez Arka z praktyki), a edytor pliku nie zna tablicy wartosci domyslnych. Lista nazw typow nieznana."
     },
     {
       "nazwa": "trigset.1.sensitivity",
@@ -115,7 +115,7 @@
         1,
         32
       ],
-      "opis": "TRIG IN 1 head. Sensitivity. Maksimum potwierdzone na wyswietlaczu (32 = 32, skala 1:1). Minimum potwierdzone pomiarem trigger_min.bin: 1."
+      "opis": "TRIG IN 1 head. Sensitivity. Skala 1:1 -- wyswietlacz 32 przy surowym 32, 1 przy surowym 1."
     },
     {
       "nazwa": "trigset.1.threshold",
@@ -126,7 +126,7 @@
         0,
         31
       ],
-      "opis": "TRIG IN 1 head. Threshold. Zakres 0..31 z pary max/min. Odczyt z wyswietlacza niepotwierdzony."
+      "opis": "TRIG IN 1 head. Threshold. Skala 1:1 POTWIERDZONA odczytem: wyswietlacz 31 przy surowym 31."
     },
     {
       "nazwa": "trigset.1.curve",
@@ -137,36 +137,76 @@
         0,
         6
       ],
-      "opis": "TRIG IN 1 head. Curve. Zakres 0..6, czyli siedem krzywych. Stara instrukcja wymienia piec (LINEAR, LOG1, LOG2, LOUD1, LOUD2) -- firmware Arka ma ich wiecej. Nazwy nieznane."
+      "opis": "TRIG IN 1 head. Curve, raw 0..6 -- siedem krzywych. Zmierzone: raw 6 to LOUD2, czyli ostatnia pozycja listy. Stara instrukcja wymienia piec (LINEAR, LOG1, LOG2, LOUD1, LOUD2); firmware ma wiecej i nazw dwoch srodkowych nie znamy."
     },
     {
       "nazwa": "trigset.1.retrig_cancel",
       "offset": 69,
       "dlugosc": 1,
-      "kodowanie": "uint8_wprost",
+      "kodowanie": "uint8_tablica_nieliniowa",
       "zakres": [
         16,
         40
       ],
-      "opis": "TRIG IN 1 head. Retrig Cancel. Zakres 16..40 wprost z pomiaru i PODEJRZANY: u Rolanda ten parametr ma zwykle 1..16. Najpewniej widzimy wartosci zalezne od typu pada. Do przemierzenia przy stalym Type."
+      "opis": "TRIG IN 1 head. Retrig Cancel. SKALA NIELINIOWA, NIE DO EDYCJI: wyswietlacz 16 przy surowym 40 i 1 przy surowym 16, czyli 15 krokow na ekranie rozklada sie na 24 w pliku. Najpewniej tablica czasow. Do rozpracowania pomiarem wartosci sredniej."
     },
     {
       "nazwa": "trigset.1.rim_gain",
       "offset": 70,
       "dlugosc": 1,
-      "kodowanie": "uint8_wprost",
+      "kodowanie": "uint8_polowa",
       "zakres": [
         1,
         16
       ],
-      "opis": "TRIG IN 1 head. Rim Gain. Zakres 1..16 z pary max/min. Dotyczy obreczy, ale w pliku siedzi w rekordzie konkretnego triggera, nie gniazda."
+      "opis": "TRIG IN 1 head. Rim Gain. Wyswietlacz pokazuje POLOWE wartosci surowej: raw 16 to '8.0'. Zakres raw 1..16, czyli 0.5..8.0 na ekranie."
     },
     {
-      "nazwa": "trigset.1.hr_adjust",
+      "nazwa": "trigset.1.nieznane_07",
       "offset": 71,
       "dlugosc": 1,
       "kodowanie": "uint8",
-      "opis": "TRIG IN 1 head. H/R Adjust (hipoteza z kolejnosci menu). W tescie 'max' NIE drgnelo (zostalo 12), w 'min' przyjelo 16 -- czyli albo skala jest odwrocona, albo wybrany typ pada tego parametru nie uzywa. Nierozstrzygniete."
+      "opis": "TRIG IN 1 head. NIEZNANE. Nie bylo ruszane recznie, a zmienilo sie razem z Type: 12 przy Type 31 i 32, 16 przy Type 1. Czyli wartosc wyliczana z typu pada, nie parametr z menu."
+    },
+    {
+      "nazwa": "trigset.1.hr_adjust",
+      "offset": 72,
+      "dlugosc": 1,
+      "kodowanie": "uint8_wprost",
+      "zakres": [
+        20,
+        80
+      ],
+      "opis": "TRIG IN 1 head. H/R Adjust. Skala 1:1 -- wyswietlacz 80 przy surowym 80, minimum surowe 20. KOREKTA: wczesniej przypisane do +0x07 na podstawie kolejnosci menu; odczyt z wyswietlacza to obalil (tam maksimum nie ruszylo bajtu wcale)."
+    },
+    {
+      "nazwa": "trigset.1.xtlk_lub_noise_a",
+      "offset": 73,
+      "dlugosc": 1,
+      "kodowanie": "uint8_wprost",
+      "zakres": [
+        0,
+        80
+      ],
+      "opis": "TRIG IN 1 head. XTLK Cancel albo Noise Cancel -- kolejnosc NIEROZSTRZYGNIETA. Oba przy maksimum daja 80 (XtlkCancel odczytany z wyswietlacza jako 80%), przy minimum 0. Rozstrzygnie backup, w ktorym zmieniony jest TYLKO jeden z nich."
+    },
+    {
+      "nazwa": "trigset.1.xtlk_lub_noise_b",
+      "offset": 74,
+      "dlugosc": 1,
+      "kodowanie": "uint8_wprost",
+      "zakres": [
+        0,
+        80
+      ],
+      "opis": "TRIG IN 1 head. Drugi z pary XTLK Cancel / Noise Cancel -- patrz +0x09."
+    },
+    {
+      "nazwa": "trigset.1.nieznane_0B",
+      "offset": 75,
+      "dlugosc": 1,
+      "kodowanie": "uint8",
+      "opis": "TRIG IN 1 head. NIEZNANE. W bazie 2 (tylko rekord TRIG IN 1 head), w obu plikach testowych 0."
     },
     {
       "nazwa": "trigset.2.input",
@@ -184,7 +224,7 @@
         1,
         31
       ],
-      "opis": "TRIG IN 1 rim. Type (typ pada). Zakres 1..31 z pary max/min. NIE WYSTAWIONY DO EDYCJI: zmiana typu przestawia w module wartosci pozostalych parametrow, a edytor pliku nie zna tych wartosci domyslnych. Lista nazw typow nieznana."
+      "opis": "TRIG IN 1 rim. Type (typ pada), raw 1..31. NIE WYSTAWIONY DO EDYCJI: zmiana typu przestawia w module wartosci pozostalych parametrow (potwierdzone i w instrukcji, i przez Arka z praktyki), a edytor pliku nie zna tablicy wartosci domyslnych. Lista nazw typow nieznana."
     },
     {
       "nazwa": "trigset.2.sensitivity",
@@ -195,7 +235,7 @@
         1,
         32
       ],
-      "opis": "TRIG IN 1 rim. Sensitivity. Maksimum potwierdzone na wyswietlaczu (32 = 32, skala 1:1). Minimum potwierdzone pomiarem trigger_min.bin: 1."
+      "opis": "TRIG IN 1 rim. Sensitivity. Skala 1:1 -- wyswietlacz 32 przy surowym 32, 1 przy surowym 1."
     },
     {
       "nazwa": "trigset.2.threshold",
@@ -206,7 +246,7 @@
         0,
         31
       ],
-      "opis": "TRIG IN 1 rim. Threshold. Zakres 0..31 z pary max/min. Odczyt z wyswietlacza niepotwierdzony."
+      "opis": "TRIG IN 1 rim. Threshold. Skala 1:1 POTWIERDZONA odczytem: wyswietlacz 31 przy surowym 31."
     },
     {
       "nazwa": "trigset.2.curve",
@@ -217,36 +257,76 @@
         0,
         6
       ],
-      "opis": "TRIG IN 1 rim. Curve. Zakres 0..6, czyli siedem krzywych. Stara instrukcja wymienia piec (LINEAR, LOG1, LOG2, LOUD1, LOUD2) -- firmware Arka ma ich wiecej. Nazwy nieznane."
+      "opis": "TRIG IN 1 rim. Curve, raw 0..6 -- siedem krzywych. Zmierzone: raw 6 to LOUD2, czyli ostatnia pozycja listy. Stara instrukcja wymienia piec (LINEAR, LOG1, LOG2, LOUD1, LOUD2); firmware ma wiecej i nazw dwoch srodkowych nie znamy."
     },
     {
       "nazwa": "trigset.2.retrig_cancel",
       "offset": 84,
       "dlugosc": 1,
-      "kodowanie": "uint8_wprost",
+      "kodowanie": "uint8_tablica_nieliniowa",
       "zakres": [
         16,
         40
       ],
-      "opis": "TRIG IN 1 rim. Retrig Cancel. Zakres 16..40 wprost z pomiaru i PODEJRZANY: u Rolanda ten parametr ma zwykle 1..16. Najpewniej widzimy wartosci zalezne od typu pada. Do przemierzenia przy stalym Type."
+      "opis": "TRIG IN 1 rim. Retrig Cancel. SKALA NIELINIOWA, NIE DO EDYCJI: wyswietlacz 16 przy surowym 40 i 1 przy surowym 16, czyli 15 krokow na ekranie rozklada sie na 24 w pliku. Najpewniej tablica czasow. Do rozpracowania pomiarem wartosci sredniej."
     },
     {
       "nazwa": "trigset.2.rim_gain",
       "offset": 85,
       "dlugosc": 1,
-      "kodowanie": "uint8_wprost",
+      "kodowanie": "uint8_polowa",
       "zakres": [
         1,
         16
       ],
-      "opis": "TRIG IN 1 rim. Rim Gain. Zakres 1..16 z pary max/min. Dotyczy obreczy, ale w pliku siedzi w rekordzie konkretnego triggera, nie gniazda."
+      "opis": "TRIG IN 1 rim. Rim Gain. Wyswietlacz pokazuje POLOWE wartosci surowej: raw 16 to '8.0'. Zakres raw 1..16, czyli 0.5..8.0 na ekranie."
     },
     {
-      "nazwa": "trigset.2.hr_adjust",
+      "nazwa": "trigset.2.nieznane_07",
       "offset": 86,
       "dlugosc": 1,
       "kodowanie": "uint8",
-      "opis": "TRIG IN 1 rim. H/R Adjust (hipoteza z kolejnosci menu). W tescie 'max' NIE drgnelo (zostalo 12), w 'min' przyjelo 16 -- czyli albo skala jest odwrocona, albo wybrany typ pada tego parametru nie uzywa. Nierozstrzygniete."
+      "opis": "TRIG IN 1 rim. NIEZNANE. Nie bylo ruszane recznie, a zmienilo sie razem z Type: 12 przy Type 31 i 32, 16 przy Type 1. Czyli wartosc wyliczana z typu pada, nie parametr z menu."
+    },
+    {
+      "nazwa": "trigset.2.hr_adjust",
+      "offset": 87,
+      "dlugosc": 1,
+      "kodowanie": "uint8_wprost",
+      "zakres": [
+        20,
+        80
+      ],
+      "opis": "TRIG IN 1 rim. H/R Adjust. Skala 1:1 -- wyswietlacz 80 przy surowym 80, minimum surowe 20. KOREKTA: wczesniej przypisane do +0x07 na podstawie kolejnosci menu; odczyt z wyswietlacza to obalil (tam maksimum nie ruszylo bajtu wcale)."
+    },
+    {
+      "nazwa": "trigset.2.xtlk_lub_noise_a",
+      "offset": 88,
+      "dlugosc": 1,
+      "kodowanie": "uint8_wprost",
+      "zakres": [
+        0,
+        80
+      ],
+      "opis": "TRIG IN 1 rim. XTLK Cancel albo Noise Cancel -- kolejnosc NIEROZSTRZYGNIETA. Oba przy maksimum daja 80 (XtlkCancel odczytany z wyswietlacza jako 80%), przy minimum 0. Rozstrzygnie backup, w ktorym zmieniony jest TYLKO jeden z nich."
+    },
+    {
+      "nazwa": "trigset.2.xtlk_lub_noise_b",
+      "offset": 89,
+      "dlugosc": 1,
+      "kodowanie": "uint8_wprost",
+      "zakres": [
+        0,
+        80
+      ],
+      "opis": "TRIG IN 1 rim. Drugi z pary XTLK Cancel / Noise Cancel -- patrz +0x09."
+    },
+    {
+      "nazwa": "trigset.2.nieznane_0B",
+      "offset": 90,
+      "dlugosc": 1,
+      "kodowanie": "uint8",
+      "opis": "TRIG IN 1 rim. NIEZNANE. W bazie 2 (tylko rekord TRIG IN 1 head), w obu plikach testowych 0."
     },
     {
       "nazwa": "trigset.3.input",
@@ -264,7 +344,7 @@
         1,
         31
       ],
-      "opis": "TRIG IN 2 head. Type (typ pada). Zakres 1..31 z pary max/min. NIE WYSTAWIONY DO EDYCJI: zmiana typu przestawia w module wartosci pozostalych parametrow, a edytor pliku nie zna tych wartosci domyslnych. Lista nazw typow nieznana."
+      "opis": "TRIG IN 2 head. Type (typ pada), raw 1..31. NIE WYSTAWIONY DO EDYCJI: zmiana typu przestawia w module wartosci pozostalych parametrow (potwierdzone i w instrukcji, i przez Arka z praktyki), a edytor pliku nie zna tablicy wartosci domyslnych. Lista nazw typow nieznana."
     },
     {
       "nazwa": "trigset.3.sensitivity",
@@ -275,7 +355,7 @@
         1,
         32
       ],
-      "opis": "TRIG IN 2 head. Sensitivity. Maksimum potwierdzone na wyswietlaczu (32 = 32, skala 1:1). Minimum potwierdzone pomiarem trigger_min.bin: 1."
+      "opis": "TRIG IN 2 head. Sensitivity. Skala 1:1 -- wyswietlacz 32 przy surowym 32, 1 przy surowym 1."
     },
     {
       "nazwa": "trigset.3.threshold",
@@ -286,7 +366,7 @@
         0,
         31
       ],
-      "opis": "TRIG IN 2 head. Threshold. Zakres 0..31 z pary max/min. Odczyt z wyswietlacza niepotwierdzony."
+      "opis": "TRIG IN 2 head. Threshold. Skala 1:1 POTWIERDZONA odczytem: wyswietlacz 31 przy surowym 31."
     },
     {
       "nazwa": "trigset.3.curve",
@@ -297,36 +377,76 @@
         0,
         6
       ],
-      "opis": "TRIG IN 2 head. Curve. Zakres 0..6, czyli siedem krzywych. Stara instrukcja wymienia piec (LINEAR, LOG1, LOG2, LOUD1, LOUD2) -- firmware Arka ma ich wiecej. Nazwy nieznane."
+      "opis": "TRIG IN 2 head. Curve, raw 0..6 -- siedem krzywych. Zmierzone: raw 6 to LOUD2, czyli ostatnia pozycja listy. Stara instrukcja wymienia piec (LINEAR, LOG1, LOG2, LOUD1, LOUD2); firmware ma wiecej i nazw dwoch srodkowych nie znamy."
     },
     {
       "nazwa": "trigset.3.retrig_cancel",
       "offset": 99,
       "dlugosc": 1,
-      "kodowanie": "uint8_wprost",
+      "kodowanie": "uint8_tablica_nieliniowa",
       "zakres": [
         16,
         40
       ],
-      "opis": "TRIG IN 2 head. Retrig Cancel. Zakres 16..40 wprost z pomiaru i PODEJRZANY: u Rolanda ten parametr ma zwykle 1..16. Najpewniej widzimy wartosci zalezne od typu pada. Do przemierzenia przy stalym Type."
+      "opis": "TRIG IN 2 head. Retrig Cancel. SKALA NIELINIOWA, NIE DO EDYCJI: wyswietlacz 16 przy surowym 40 i 1 przy surowym 16, czyli 15 krokow na ekranie rozklada sie na 24 w pliku. Najpewniej tablica czasow. Do rozpracowania pomiarem wartosci sredniej."
     },
     {
       "nazwa": "trigset.3.rim_gain",
       "offset": 100,
       "dlugosc": 1,
-      "kodowanie": "uint8_wprost",
+      "kodowanie": "uint8_polowa",
       "zakres": [
         1,
         16
       ],
-      "opis": "TRIG IN 2 head. Rim Gain. Zakres 1..16 z pary max/min. Dotyczy obreczy, ale w pliku siedzi w rekordzie konkretnego triggera, nie gniazda."
+      "opis": "TRIG IN 2 head. Rim Gain. Wyswietlacz pokazuje POLOWE wartosci surowej: raw 16 to '8.0'. Zakres raw 1..16, czyli 0.5..8.0 na ekranie."
     },
     {
-      "nazwa": "trigset.3.hr_adjust",
+      "nazwa": "trigset.3.nieznane_07",
       "offset": 101,
       "dlugosc": 1,
       "kodowanie": "uint8",
-      "opis": "TRIG IN 2 head. H/R Adjust (hipoteza z kolejnosci menu). W tescie 'max' NIE drgnelo (zostalo 12), w 'min' przyjelo 16 -- czyli albo skala jest odwrocona, albo wybrany typ pada tego parametru nie uzywa. Nierozstrzygniete."
+      "opis": "TRIG IN 2 head. NIEZNANE. Nie bylo ruszane recznie, a zmienilo sie razem z Type: 12 przy Type 31 i 32, 16 przy Type 1. Czyli wartosc wyliczana z typu pada, nie parametr z menu."
+    },
+    {
+      "nazwa": "trigset.3.hr_adjust",
+      "offset": 102,
+      "dlugosc": 1,
+      "kodowanie": "uint8_wprost",
+      "zakres": [
+        20,
+        80
+      ],
+      "opis": "TRIG IN 2 head. H/R Adjust. Skala 1:1 -- wyswietlacz 80 przy surowym 80, minimum surowe 20. KOREKTA: wczesniej przypisane do +0x07 na podstawie kolejnosci menu; odczyt z wyswietlacza to obalil (tam maksimum nie ruszylo bajtu wcale)."
+    },
+    {
+      "nazwa": "trigset.3.xtlk_lub_noise_a",
+      "offset": 103,
+      "dlugosc": 1,
+      "kodowanie": "uint8_wprost",
+      "zakres": [
+        0,
+        80
+      ],
+      "opis": "TRIG IN 2 head. XTLK Cancel albo Noise Cancel -- kolejnosc NIEROZSTRZYGNIETA. Oba przy maksimum daja 80 (XtlkCancel odczytany z wyswietlacza jako 80%), przy minimum 0. Rozstrzygnie backup, w ktorym zmieniony jest TYLKO jeden z nich."
+    },
+    {
+      "nazwa": "trigset.3.xtlk_lub_noise_b",
+      "offset": 104,
+      "dlugosc": 1,
+      "kodowanie": "uint8_wprost",
+      "zakres": [
+        0,
+        80
+      ],
+      "opis": "TRIG IN 2 head. Drugi z pary XTLK Cancel / Noise Cancel -- patrz +0x09."
+    },
+    {
+      "nazwa": "trigset.3.nieznane_0B",
+      "offset": 105,
+      "dlugosc": 1,
+      "kodowanie": "uint8",
+      "opis": "TRIG IN 2 head. NIEZNANE. W bazie 2 (tylko rekord TRIG IN 1 head), w obu plikach testowych 0."
     },
     {
       "nazwa": "trigset.4.input",
@@ -344,7 +464,7 @@
         1,
         31
       ],
-      "opis": "TRIG IN 2 rim. Type (typ pada). Zakres 1..31 z pary max/min. NIE WYSTAWIONY DO EDYCJI: zmiana typu przestawia w module wartosci pozostalych parametrow, a edytor pliku nie zna tych wartosci domyslnych. Lista nazw typow nieznana."
+      "opis": "TRIG IN 2 rim. Type (typ pada), raw 1..31. NIE WYSTAWIONY DO EDYCJI: zmiana typu przestawia w module wartosci pozostalych parametrow (potwierdzone i w instrukcji, i przez Arka z praktyki), a edytor pliku nie zna tablicy wartosci domyslnych. Lista nazw typow nieznana."
     },
     {
       "nazwa": "trigset.4.sensitivity",
@@ -355,7 +475,7 @@
         1,
         32
       ],
-      "opis": "TRIG IN 2 rim. Sensitivity. Maksimum potwierdzone na wyswietlaczu (32 = 32, skala 1:1). Minimum potwierdzone pomiarem trigger_min.bin: 1."
+      "opis": "TRIG IN 2 rim. Sensitivity. Skala 1:1 -- wyswietlacz 32 przy surowym 32, 1 przy surowym 1."
     },
     {
       "nazwa": "trigset.4.threshold",
@@ -366,7 +486,7 @@
         0,
         31
       ],
-      "opis": "TRIG IN 2 rim. Threshold. Zakres 0..31 z pary max/min. Odczyt z wyswietlacza niepotwierdzony."
+      "opis": "TRIG IN 2 rim. Threshold. Skala 1:1 POTWIERDZONA odczytem: wyswietlacz 31 przy surowym 31."
     },
     {
       "nazwa": "trigset.4.curve",
@@ -377,49 +497,90 @@
         0,
         6
       ],
-      "opis": "TRIG IN 2 rim. Curve. Zakres 0..6, czyli siedem krzywych. Stara instrukcja wymienia piec (LINEAR, LOG1, LOG2, LOUD1, LOUD2) -- firmware Arka ma ich wiecej. Nazwy nieznane."
+      "opis": "TRIG IN 2 rim. Curve, raw 0..6 -- siedem krzywych. Zmierzone: raw 6 to LOUD2, czyli ostatnia pozycja listy. Stara instrukcja wymienia piec (LINEAR, LOG1, LOG2, LOUD1, LOUD2); firmware ma wiecej i nazw dwoch srodkowych nie znamy."
     },
     {
       "nazwa": "trigset.4.retrig_cancel",
       "offset": 114,
       "dlugosc": 1,
-      "kodowanie": "uint8_wprost",
+      "kodowanie": "uint8_tablica_nieliniowa",
       "zakres": [
         16,
         40
       ],
-      "opis": "TRIG IN 2 rim. Retrig Cancel. Zakres 16..40 wprost z pomiaru i PODEJRZANY: u Rolanda ten parametr ma zwykle 1..16. Najpewniej widzimy wartosci zalezne od typu pada. Do przemierzenia przy stalym Type."
+      "opis": "TRIG IN 2 rim. Retrig Cancel. SKALA NIELINIOWA, NIE DO EDYCJI: wyswietlacz 16 przy surowym 40 i 1 przy surowym 16, czyli 15 krokow na ekranie rozklada sie na 24 w pliku. Najpewniej tablica czasow. Do rozpracowania pomiarem wartosci sredniej."
     },
     {
       "nazwa": "trigset.4.rim_gain",
       "offset": 115,
       "dlugosc": 1,
-      "kodowanie": "uint8_wprost",
+      "kodowanie": "uint8_polowa",
       "zakres": [
         1,
         16
       ],
-      "opis": "TRIG IN 2 rim. Rim Gain. Zakres 1..16 z pary max/min. Dotyczy obreczy, ale w pliku siedzi w rekordzie konkretnego triggera, nie gniazda."
+      "opis": "TRIG IN 2 rim. Rim Gain. Wyswietlacz pokazuje POLOWE wartosci surowej: raw 16 to '8.0'. Zakres raw 1..16, czyli 0.5..8.0 na ekranie."
     },
     {
-      "nazwa": "trigset.4.hr_adjust",
+      "nazwa": "trigset.4.nieznane_07",
       "offset": 116,
       "dlugosc": 1,
       "kodowanie": "uint8",
-      "opis": "TRIG IN 2 rim. H/R Adjust (hipoteza z kolejnosci menu). W tescie 'max' NIE drgnelo (zostalo 12), w 'min' przyjelo 16 -- czyli albo skala jest odwrocona, albo wybrany typ pada tego parametru nie uzywa. Nierozstrzygniete."
+      "opis": "TRIG IN 2 rim. NIEZNANE. Nie bylo ruszane recznie, a zmienilo sie razem z Type: 12 przy Type 31 i 32, 16 przy Type 1. Czyli wartosc wyliczana z typu pada, nie parametr z menu."
+    },
+    {
+      "nazwa": "trigset.4.hr_adjust",
+      "offset": 117,
+      "dlugosc": 1,
+      "kodowanie": "uint8_wprost",
+      "zakres": [
+        20,
+        80
+      ],
+      "opis": "TRIG IN 2 rim. H/R Adjust. Skala 1:1 -- wyswietlacz 80 przy surowym 80, minimum surowe 20. KOREKTA: wczesniej przypisane do +0x07 na podstawie kolejnosci menu; odczyt z wyswietlacza to obalil (tam maksimum nie ruszylo bajtu wcale)."
+    },
+    {
+      "nazwa": "trigset.4.xtlk_lub_noise_a",
+      "offset": 118,
+      "dlugosc": 1,
+      "kodowanie": "uint8_wprost",
+      "zakres": [
+        0,
+        80
+      ],
+      "opis": "TRIG IN 2 rim. XTLK Cancel albo Noise Cancel -- kolejnosc NIEROZSTRZYGNIETA. Oba przy maksimum daja 80 (XtlkCancel odczytany z wyswietlacza jako 80%), przy minimum 0. Rozstrzygnie backup, w ktorym zmieniony jest TYLKO jeden z nich."
+    },
+    {
+      "nazwa": "trigset.4.xtlk_lub_noise_b",
+      "offset": 119,
+      "dlugosc": 1,
+      "kodowanie": "uint8_wprost",
+      "zakres": [
+        0,
+        80
+      ],
+      "opis": "TRIG IN 2 rim. Drugi z pary XTLK Cancel / Noise Cancel -- patrz +0x09."
+    },
+    {
+      "nazwa": "trigset.4.nieznane_0B",
+      "offset": 120,
+      "dlugosc": 1,
+      "kodowanie": "uint8",
+      "opis": "TRIG IN 2 rim. NIEZNANE. W bazie 2 (tylko rekord TRIG IN 1 head), w obu plikach testowych 0."
     }
   ],
   "otwartePytania": [
-    "Ktory z bajtow +0x08 / +0x09 / +0x0A rekordu wejscia to XTLK Cancel, ktory Noise Cancel, a czym jest trzeci. Wszystkie trzy skoczyly do 80 przy maksimum; przy minimum +0x08 = 20, pozostale 0.",
-    "Bajt +0x0B rekordu wejscia: w bazie 2 (tylko TRIG IN 1 head), w obu testach 0.",
-    "H/R Adjust: skala wyglada na odwrocona albo parametr nie dotyczy wybranego typu pada.",
-    "Retrig Cancel: zakres 16..40 nie pasuje do typowego 1..16 -- przemierzyc przy stalym Type.",
-    "Lista nazw typow pada (Type 1..31) i tablica wartosci domyslnych, ktore kazdy typ narzuca pozostalym parametrom. Bez tego Type nie moze byc edytowalny.",
-    "Nazwy siedmiu krzywych (Curve 0..6).",
+    "Ktory z bajtow +0x09 / +0x0A rekordu wejscia to XTLK Cancel, a ktory Noise Cancel. Rozstrzygnie backup ze zmiana TYLKO jednego z nich.",
+    "Retrig Cancel: tablica przeliczen. Znane dwa punkty -- wyswietlacz 1 = raw 16, wyswietlacz 16 = raw 40. Trzeci punkt (np. 8) powie, czy to rownomierne przyblizenie, czy prawdziwa tablica.",
+    "Bajt +0x07 rekordu wejscia: wartosc wyliczana z Type (12 przy Type 31/32, 16 przy Type 1). Co to jest?",
+    "Bajt +0x0B rekordu wejscia: w bazie 2, w obu testach 0.",
+    "Nazwy typow pada (Type 1..31) i tablica wartosci domyslnych, ktore kazdy typ narzuca pozostalym parametrom. Bez tego Type nie moze byc edytowalny.",
+    "Nazwy dwoch brakujacych krzywych (Curve 0..6; wiemy, ze 6 = LOUD2).",
     "44 B danych kitu (+0x16..+0x41): instrukcja na poziomie kitu wymienia tylko nazwe i KIT EFFECT (12 typow: THRU, DELAY, TAPE ECHO, CHORUS, FLANGER, PHASER, EQUALIZER, COMP, WAH, DIST, RINGMOD, REVERB) plus parametry efektu. Hipoteza: te 44 B to wlasnie efekt kitu.",
     "Slot brzmienia, pola bez przypisania: +0x02 (we wszystkich slotach 1), +0x0A (0), +0x10 (na kicie 40 / 2 head ustawione na 1 juz w najstarszym pliku b1.bin), +0x12 (1), +0x14 (w kicie 1 tylko 2 head ma 1), +0x16 (wszedzie 0xFFFF, czyli -1 -- hipoteza: MuteGroup = OFF), +0x18 oraz +0x1C..+0x29.",
     "Instrukcja wymienia na pad jeszcze: Dynmcs (LINEAR / LOUD1 / LOUD2 / LOUD3 / MAX), Mono/Poly, MuteGroup, EffectSend. Zadne nie jest jeszcze zmierzone.",
-    "Loop=ON nie przestawil zadnego innego bajtu, choc instrukcja mowi, ze wymusza MONO -- czyli modu\u0142 wymusza to przy grze, a nie w zapisie.",
+    "Note# pod +0x0C to na razie HIPOTEZA z wartosci (36/35/38/40 w fabrycznym kicie 1). Do potwierdzenia: zmienic Note# na 60.",
+    "Loop=ON nie przestawil zadnego innego bajtu, choc instrukcja mowi, ze wymusza MONO -- czyli modul wymusza to przy grze, a nie w zapisie.",
     "Naglowek pliku 0x00..0x3F: pola pod 0x14, 0x18, 0x1C, 0x28. Osobno: bajty 0x0A (67 -> 66) i 0x2C (4 -> 3) zmienily sie miedzy baza a para testowa, ale sa identyczne w obu plikach testowych -- czyli nie licznik zapisow.",
     "Strefa ~101 KB zer po bloku kitow.",
     "W pliku jest 100 nazw kitow, nie 99 -- dlaczego jedna wiecej?"

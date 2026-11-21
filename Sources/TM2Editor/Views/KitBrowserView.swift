@@ -162,17 +162,25 @@ struct KitDetailView: View {
         )
     }
 
-    /// TM-2 ma dwa gniazda, każde dual-trigger. Etykiety mają to odzwierciedlać,
-    /// żeby nie trzeba było w głowie przeliczać „trigger 3" na „wejście 2, head".
+    /// Jeden rekord w pliku = jedno gniazdo TRIG IN.
+    ///
+    /// Wcześniej te etykiety brzmiały `1A` i `1B` i opisywały dwa rekordy jako
+    /// dwie strony (head/rim) TEGO SAMEGO gniazda. To było zgadnięte i okazało
+    /// się nieprawdą: 2026-11-21 Arek ustawił Level na **TRIG IN 2** i wartość
+    /// wylądowała w rekordzie DRUGIM, a nie w „stronie B" rekordu pierwszego.
+    ///
+    /// Czyli rekordy odpowiadają gniazdom, a head i rim jednego gniazda muszą
+    /// siedzieć wewnątrz jednego rekordu (gdzie dokładnie — jeszcze nie wiemy).
+    /// Zła etykieta była groźna: kazała edytować drugi pad w przekonaniu, że
+    /// ustawia się rim pierwszego.
     private func triggerLabel(_ index: Int) -> String {
-        let input = (index - 1) / 2 + 1
-        let side = (index - 1) % 2 == 0 ? "A" : "B"
-        return "\(input)\(side)"
+        "TRIG IN \(index)"
     }
 
     private var triggerHint: String {
-        "Inputs 1 and 2 are dual-trigger jacks: A is the tip signal "
-            + "(head / main), B is the ring signal (rim / secondary)."
+        "One record per TRIG IN jack. Head and rim of the same jack share "
+            + "a single record — where the rim settings sit inside it is not "
+            + "mapped yet."
     }
 }
 

@@ -184,6 +184,15 @@ struct BackupFile {
             guard let raw = slice(at: offset, length: 2) else { return nil }
             return .number((Int(raw[0]) << 8) | Int(raw[1]))
 
+        case .signed16LE:
+            guard let raw = slice(at: offset, length: 2) else { return nil }
+            // Składamy bajty bez znaku, a dopiero `Int16(bitPattern:)` nadaje
+            // im znaczenie liczby ze znakiem. Odwrotna kolejność (najpierw
+            // Int, potem ręczne odejmowanie 65536) też by działała, ale jest
+            // łatwiejsza do pomylenia o jeden przy granicy zakresu.
+            let word = UInt16(raw[0]) | (UInt16(raw[1]) << 8)
+            return .number(Int(Int16(bitPattern: word)))
+
         case .bit(let index):
             guard let raw = byte(at: offset), index >= 0, index < 8 else { return nil }
             return .number((Int(raw) >> index) & 1)
@@ -275,6 +284,19 @@ struct BackupFile {
             let number = try requireNumber(value, fieldID: fieldID, range: min...max)
             let word = try requireWord(number, fieldID: fieldID)
             try setSlice([UInt8(word >> 8), UInt8(word & 0xFF)], at: offset)
+
+        case .signed16LE(let min, let max):
+            let number = try requireNumber(value, fieldID: fieldID, range: min...max)
+            // Ta sama zasada co przy `requireWord`: żadnego maskowania.
+            // Wartość spoza zakresu Int16 to błąd w opisie układu i ma zostać
+            // zgłoszona, a nie po cichu zawinięta.
+            guard let signed = Int16(exactly: number) else {
+                throw BackupFileError.valueOutOfRange(fieldID: fieldID,
+                                                      value: number,
+                                                      allowed: -32768...32767)
+            }
+            let word = UInt16(bitPattern: signed)
+            try setSlice([UInt8(word & 0xFF), UInt8(word >> 8)], at: offset)
 
         case .bit(let index):
             let number = try requireNumber(value, fieldID: fieldID, range: 0...1)

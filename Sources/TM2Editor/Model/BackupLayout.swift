@@ -460,10 +460,78 @@ extension BackupLayout {
                 layout.triggerFields[index].offset = 4   // względem początku rekordu triggera
                 layout.triggerFields[index].note = "Potwierdzone na dwóch triggerach, dwóch"
                     + " kitach, obu skrajnościach: 0-100 wprost, bez odwrócenia."
+
+            case "trig.pitch":
+                // UWAGA: nadpisujemy TAKŻE kodowanie. W `unmappedTM2` pitch był
+                // zgadnięty jako bajt z przesunięciem 64 i zakresem ±48 — pomiar
+                // pokazał co innego: dwa bajty ze znakiem, zakres ±120, 1:1
+                // z wyświetlaczem. Zgadywanka z pustego layoutu zostaje tam
+                // nietknięta (zależą od niej testy), ale tu musi ustąpić faktom.
+                layout.triggerFields[index].offset = 6
+                layout.triggerFields[index].encoding = .signed16LE(min: -120, max: 120)
+                layout.triggerFields[index].note = "Zmierzone 2026-09-04 na obu"
+                    + " skrajnościach: +120 to bajty 78 00, −120 to 88 FF."
+                    + " Skala 1:1 z wyświetlaczem modułu. Wartości ujemne"
+                    + " potwierdzone niezależnie w samym pliku bazowym:"
+                    + " kit 1, trigger 2 ma fabrycznie FE FF, czyli −2."
+
+            case "trig.pan":
+                // Tu również kodowanie było zgadnięte (przesunięcie 64, ±32).
+                // Pomiar: przesunięcie 15, zakres ±15 (L15..CENTER..R15),
+                // czyli w pliku bajt 0..30.
+                layout.triggerFields[index].offset = 8
+                layout.triggerFields[index].encoding = .biased(bias: 15, min: -15, max: 15)
+                layout.triggerFields[index].note = "Zmierzone 2026-09-04 na obu"
+                    + " skrajnościach: L15 to bajt 0, R15 to bajt 30."
+                    + " Środek (CENTER) wypada na 15 — zgodne z tym, że kit 1"
+                    + " ma fabrycznie 15 w obu triggerach, czyli wszystko"
+                    + " wyśrodkowane. Hipoteza kroku 2 odpadła policzalnie:"
+                    + " dawałaby dla fabrycznego 15 wartość R7,5."
+
             default:
-                break   // trig.pan, trig.pitch, trig.type itd. — jeszcze niezmapowane
+                break   // trig.decay, trig.type, trig.sensitivity itd. — jeszcze niezmapowane
             }
         }
+
+        // Pola, których `unmappedTM2` w ogóle nie przewidywał — wyszły dopiero
+        // z mapowania różnicowego. Dopisujemy je tutaj, a nie do pustego
+        // layoutu, żeby nie ruszać jego wartości domyślnych (zależą od nich
+        // istniejące testy).
+        layout.triggerFields.append(
+            FieldSpec(
+                id: "trig.loop",
+                label: "Loop",
+                scope: .trigger,
+                group: .sound,
+                offset: 14,                 // +0x0E względem początku rekordu
+                encoding: .boolean,
+                note: "Zmierzone 2026-11-21. Rozróżnione od Offsetu dopiero"
+                    + " testem na skrajnej wartości: przy Loop ON i Offsetcie"
+                    + " wykręconym na maksimum to pole zostało na 1, a drugie"
+                    + " skoczyło na 3000. Przełącznik nie ma jak wyjść poza 1,"
+                    + " więc to jest Loop."
+            )
+        )
+
+        layout.triggerFields.append(
+            FieldSpec(
+                id: "trig.offset",
+                label: "Offset",
+                scope: .trigger,
+                group: .sound,
+                offset: 26,                 // +0x1A względem początku rekordu
+                encoding: .unsigned16LE(min: 0, max: 3000),
+                note: "Opóźnienie startu próbki, zapisane w DZIESIĄTYCH"
+                    + " CZĘŚCIACH MILISEKUNDY: 0.1 ms na wyświetlaczu to 1"
+                    + " w pliku, 300 ms to 3000 (0x0BB8). Dwa zgodne pomiary."
+                    + " UWAGA: górna granica 3000 jest przyjęta z pliku"
+                    + " nazwanego \"offset300ms\", zapisanego na prośbę"
+                    + " o wykręcenie na maksimum — ale sam fakt, że to jest"
+                    + " maksimum, nie został potwierdzony wprost. Lepiej, żeby"
+                    + " edytor odmówił wartości legalnej, niż żeby wpisał"
+                    + " do pliku wartość, której moduł nigdy by nie wystawił."
+            )
+        )
 
         return layout
     }

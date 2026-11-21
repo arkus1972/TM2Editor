@@ -48,6 +48,19 @@ enum FieldEncoding: Codable, Equatable {
     /// Dwa bajty, big-endian. Roland historycznie lubi big-endian.
     case unsigned16BE(min: Int, max: Int)
 
+    /// Dwa bajty, little-endian, ZE ZNAKIEM (uzupełnienia do dwóch).
+    ///
+    /// Tak zapisany jest Pitch w prawdziwym pliku BACKUP — zmierzone
+    /// 2026-09-04 na obu skrajnościach: +120 to bajty `78 00`, −120 to
+    /// `88 FF`. Niezależne potwierdzenie przyszło z samego pliku bazowego:
+    /// kit 1, trigger 2 ma fabrycznie `FE FF`, czyli −2, więc wartości
+    /// ujemne naprawdę występują w danych z modułu, a nie tylko w teorii.
+    ///
+    /// Osobny wariant, a nie `biased`, bo przesunięcie zapisuje wartość
+    /// w jednym bajcie i nie udźwignęłoby zakresu ±120 wokół zera razem
+    /// z drugim bajtem, który tu realnie się rusza.
+    case signed16LE(min: Int, max: Int)
+
     /// Pojedynczy bit w bajcie.
     case bit(index: Int)
 
@@ -72,7 +85,7 @@ enum FieldEncoding: Codable, Equatable {
         switch self {
         case .unsigned, .biased, .bit, .enumeration, .boolean:
             return 1
-        case .unsigned16LE, .unsigned16BE:
+        case .unsigned16LE, .unsigned16BE, .signed16LE:
             return 2
         case .ascii(let length), .utf16LE(let length):
             return length
@@ -86,7 +99,8 @@ enum FieldEncoding: Codable, Equatable {
             return min...max
         case .biased(_, let min, let max):
             return min...max
-        case .unsigned16LE(let min, let max), .unsigned16BE(let min, let max):
+        case .unsigned16LE(let min, let max), .unsigned16BE(let min, let max),
+             .signed16LE(let min, let max):
             return min...max
         case .bit:
             return 0...1

@@ -238,6 +238,94 @@ final class BackupFileTests: XCTestCase {
             + " bez ponownego zmierzenia stride'u na module.")
     }
 
+    // MARK: - Liczby 16-bit ze znakiem (Pitch w prawdziwym pliku)
+
+    /// Wzorce bajtów wzięte z prawdziwych pomiarów na module (2026-09-04),
+    /// nie wymyślone: +120 dało `78 00`, −120 dało `88 FF`, a w pliku bazowym
+    /// kit 1 / trigger 2 ma fabrycznie `FE FF` = −2.
+    func testSigned16LEMatchesMeasuredBytePatterns() throws {
+        let field = FieldSpec(id: "test.pitch", label: "Pitch", scope: .global,
+                              group: .sound, offset: 0,
+                              encoding: .signed16LE(min: -120, max: 120), note: nil)
+        var layout = BackupLayout.unmappedTM2
+        layout.globalFields = [field]
+        var file = BackupFile(bytes: [UInt8](repeating: 0xAA, count: 8), layout: layout)
+
+        try file.setValue(.number(120), for: field)
+        XCTAssertEqual(file.slice(at: 0, length: 2), [0x78, 0x00])
+        XCTAssertEqual(file.value(of: field)?.numberValue, 120)
+
+        try file.setValue(.number(-120), for: field)
+        XCTAssertEqual(file.slice(at: 0, length: 2), [0x88, 0xFF])
+        XCTAssertEqual(file.value(of: field)?.numberValue, -120)
+
+        try file.setValue(.number(-2), for: field)
+        XCTAssertEqual(file.slice(at: 0, length: 2), [0xFE, 0xFF])
+        XCTAssertEqual(file.value(of: field)?.numberValue, -2)
+
+        try file.setValue(.number(0), for: field)
+        XCTAssertEqual(file.slice(at: 0, length: 2), [0x00, 0x00])
+        XCTAssertEqual(file.value(of: field)?.numberValue, 0)
+    }
+
+    func testSigned16LERejectsValueOutsideDeclaredRange() {
+        let field = FieldSpec(id: "test.pitch", label: "Pitch", scope: .global,
+                              group: .sound, offset: 0,
+                              encoding: .signed16LE(min: -120, max: 120), note: nil)
+        var layout = BackupLayout.unmappedTM2
+        layout.globalFields = [field]
+        var file = BackupFile(bytes: [UInt8](repeating: 0, count: 8), layout: layout)
+
+        XCTAssertThrowsError(try file.setValue(.number(121), for: field))
+        XCTAssertThrowsError(try file.setValue(.number(-121), for: field))
+    }
+
+    // MARK: - Zgodność layoutu ze zmierzonymi offsetami
+
+    /// Pilnuje, żeby offsety i kodowania zmierzone na module nie rozjechały się
+    /// z kodem przy przyszłych zmianach. Każda liczba tutaj ma pokrycie
+    /// w dzienniku mapowania — jeśli test zacznie padać, to znaczy, że ktoś
+    /// zmienił layout bez ponownego pomiaru.
+    func testMappedLayoutMatchesMeasuredTriggerRecord() {
+        let layout = BackupLayout.mapped2026_09_02
+
+        func field(_ id: String) -> FieldSpec? {
+            layout.triggerFields.first(where: { $0.id == id })
+        }
+
+        XCTAssertEqual(field("trig.instrument")?.offset, 0)
+        XCTAssertEqual(field("trig.level")?.offset, 4)
+        XCTAssertEqual(field("trig.pitch")?.offset, 6)
+        XCTAssertEqual(field("trig.pan")?.offset, 8)
+        XCTAssertEqual(field("trig.loop")?.offset, 14)
+        XCTAssertEqual(field("trig.offset")?.offset, 26)
+
+        XCTAssertEqual(field("trig.pitch")?.encoding, .signed16LE(min: -120, max: 120))
+        XCTAssertEqual(field("trig.pan")?.encoding, .biased(bias: 15, min: -15, max: 15))
+        XCTAssertEqual(field("trig.loop")?.encoding, .boolean)
+        XCTAssertEqual(field("trig.offset")?.encoding, .unsigned16LE(min: 0, max: 3000))
+
+        // Żadne z pól rekordu nie może wystawać poza rekord (84 B) — gdyby
+        // wystawało, zapis wszedłby w sąsiedni trigger albo w następny kit.
+        for spec in layout.triggerFields {
+            guard let offset = spec.offset else { continue }
+            XCTAssertLessThanOrEqual(offset + spec.encoding.byteLength, layout.triggerStride ?? 0,
+                "Pole \(spec.id) wychodzi poza rekord triggera.")
+        }
+    }
+
+    /// `unmappedTM2` ma zostać nietknięty — zależą od niego pozostałe testy,
+    /// a także tryb pracy "jeszcze nic nie wiem o formacie".
+    func testUnmappedLayoutStaysUnmapped() {
+        let layout = BackupLayout.unmappedTM2
+        XCTAssertNil(layout.triggerFields.first(where: { $0.id == "trig.pitch" })?.offset)
+        XCTAssertNil(layout.triggerFields.first(where: { $0.id == "trig.pan" })?.offset)
+        XCTAssertNil(layout.triggerFields.first(where: { $0.id == "trig.loop" }),
+                     "trig.loop ma istnieć tylko w layoucie zmierzonym.")
+        XCTAssertNil(layout.triggerFields.first(where: { $0.id == "trig.offset" }),
+                     "trig.offset ma istnieć tylko w layoucie zmierzonym.")
+    }
+
     // MARK: - Oryginał nietknięty
 
     func testOriginalBytesSurviveEditing() throws {

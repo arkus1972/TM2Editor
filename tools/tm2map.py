@@ -265,18 +265,49 @@ def rozpoznaj_offset(offset: int, rozmiar_pliku: int, pola: dict) -> Opis:
                 f"{prefiks_kitu}, Trigger {nr_trigera}, offset +0x{w_trigerze:X} w rekordzie "
                 f"-- NIEZNANE POLE",
                 False,
-                f"nieznane_trigger:{w_trigerze:X}",
+                # Klucz BEZ konkretnego offsetu: sąsiadujące nieznane bajty
+                # w tym samym rekordzie mają się skleić w jedną grupę, bo nie
+                # wiemy, gdzie przebiegają granice pól. Znane pola mają klucze
+                # z nazwą, więc one się nie skleją z niczym obcym.
+                f"nieznane_trigger:{nr_kitu}:{nr_trigera}",
             )
 
         return Opis(
             f"{prefiks_kitu}, offset +0x{w_kicie:X} w bloku kitu (poza rekordami triggerów) "
             f"-- NIEZNANE POLE",
             False,
-            f"nieznane_kit:{w_kicie:X}",
+            f"nieznane_kit:{nr_kitu}",
         )
 
     # 4. Nagłówek pliku, przed blokiem kitów.
-    return Opis(f"nagłówek pliku, offset 0x{offset:X} -- NIEZNANE POLE", False, f"nieznany_naglowek:{offset:X}")
+    return Opis(f"nagłówek pliku, offset 0x{offset:X} -- NIEZNANE POLE", False, "nieznany_naglowek")
+
+
+def grupuj_wedlug_pol(offsety: list[int], rozmiar_pliku: int, pola: dict) -> list[tuple]:
+    """Grupuje zmienione bajty, ale TYLKO w obrębie jednego pola.
+
+    `grupuj_sasiednie` skleja każde sąsiadujące bajty, niezależnie od tego, do
+    czego należą, a etykieta brana jest z pierwszego offsetu w grupie. Przy
+    polach leżących tuż obok siebie daje to fałszywy opis: 2026-09-04 zmiana
+    pitcha (+0x06, 2 B) i pana (+0x08, 1 B) skleiła się w jedną trzybajtową
+    grupę podpisaną w całości jako `trig.pitch`. Dane były komplentne, ale
+    etykieta myliła.
+
+    Tutaj rozpoznajemy KAŻDY bajt osobno i łączymy dwa sąsiednie dopiero wtedy,
+    gdy trafiły do tego samego pola (ten sam `klucz_grupy`).
+
+    Zwraca listę krotek (start, koniec_wlacznie, Opis).
+    """
+    wynik: list[tuple] = []
+    for offset in offsety:
+        opis = rozpoznaj_offset(offset, rozmiar_pliku, pola)
+        if wynik:
+            start, koniec, poprzedni = wynik[-1]
+            if offset == koniec + 1 and poprzedni.klucz_grupy == opis.klucz_grupy:
+                wynik[-1] = (start, offset, poprzedni)
+                continue
+        wynik.append((offset, offset, opis))
+    return wynik
 
 
 def znajdz_rozniace_sie_offsety(a: bytes, b: bytes) -> list[int]:
@@ -360,13 +391,12 @@ def cmd_analizuj(katalog: Path, plik: Path, opis_zmiany: str | None) -> None:
         print("Brak jakiejkolwiek różnicy względem pliku bazowego. Nic się nie zmieniło (albo to ten sam plik).")
         return
 
-    grupy = grupuj_sasiednie(offsety)
+    grupy = grupuj_wedlug_pol(offsety, rozmiar, pola)
 
     znane: list[str] = []
     nowe: list[str] = []
 
-    for start, koniec in grupy:
-        opis = rozpoznaj_offset(start, rozmiar, pola)
+    for start, koniec, opis in grupy:
         stare_bajty = baza[start:koniec + 1].hex(" ")
         nowe_bajty = nowy[start:koniec + 1].hex(" ")
         linia = f"offset 0x{start:06X} ({start})  {stare_bajty} -> {nowe_bajty}   [{opis.tekst}]"

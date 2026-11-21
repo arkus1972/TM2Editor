@@ -357,6 +357,73 @@ final class BackupFileTests: XCTestCase {
         }
     }
 
+    /// Pomiar `trigger_max.bin` / `trigger_min.bin` (2026-11-21): wszystkie
+    /// parametry wejścia TRIG IN 1 head na maksimum, potem na minimum.
+    /// Zmieniły się wyłącznie bajty +0x01…+0x0A pierwszego rekordu, a to
+    /// daje i adresy pól, i ich zakresy.
+    func testMeasuredTriggerInputRecordLayout() {
+        let layout = BackupLayout.mapped2026_09_02
+
+        // offset w rekordzie -> (nazwa pola w id, zakres)
+        let oczekiwane: [(Int, String, ClosedRange<Int>)] = [
+            (0x02, "sensitivity", 1...32),
+            (0x03, "threshold", 0...31),
+            (0x04, "curve", 0...6),
+            (0x05, "retrigcancel", 16...40),
+            (0x06, "rimgain", 1...16),
+        ]
+
+        for numer in 1...4 {
+            let bazaRekordu = 0x40 + (numer - 1) * 15
+            for (wRekordzie, nazwa, zakres) in oczekiwane {
+                let id = "trigset.\(numer).\(nazwa)"
+                guard let pole = layout.globalFields.first(where: { $0.id == id }) else {
+                    XCTFail("Brak pola \(id).")
+                    continue
+                }
+                XCTAssertEqual(pole.offset, bazaRekordu + wRekordzie,
+                    "\(id) ma siedzieć pod 0x\(String(bazaRekordu + wRekordzie, radix: 16)).")
+                XCTAssertEqual(pole.scope, .global)
+                XCTAssertEqual(pole.encoding.numericRange, zakres,
+                    "Zakres \(id) ma być wzięty wprost z pomiaru.")
+            }
+        }
+    }
+
+    /// `Type` jest zmapowany (wiemy, że to +0x01), ale CELOWO nie jest
+    /// wystawiony do edycji: zmiana typu pada przestawia w module wartości
+    /// pozostałych parametrów, a edytor pliku nie zna tych wartości
+    /// domyślnych. Ten test pilnuje, żeby nie wrócił tu przez przypadek.
+    func testPadTypeIsDeliberatelyNotEditable() {
+        let layout = BackupLayout.mapped2026_09_02
+        for numer in 1...4 {
+            XCTAssertNil(layout.globalFields.first(where: { $0.id == "trigset.\(numer).type" }),
+                "Type nie może być edytowalny, dopóki nie znamy tablicy"
+                    + " wartości domyślnych dla każdego typu pada.")
+        }
+    }
+
+    /// Każde pole ustawień wejścia musi zostać wewnątrz swojego
+    /// 15-bajtowego rekordu. Pomyłka o jeden bajt wpisywałaby ustawienie
+    /// jednego triggera do rekordu następnego.
+    func testTriggerInputFieldsStayInsideTheirRecord() {
+        let layout = BackupLayout.mapped2026_09_02
+        let ustawienia = layout.globalFields.filter { $0.id.hasPrefix("trigset.") }
+        XCTAssertFalse(ustawienia.isEmpty)
+
+        for pole in ustawienia {
+            guard let offset = pole.offset else {
+                XCTFail("\(pole.id) bez adresu.")
+                continue
+            }
+            let wStrefie = offset - 0x40
+            XCTAssertTrue(wStrefie >= 0 && wStrefie < 4 * 15,
+                          "\(pole.id) wypada poza strefę ustawień wejść.")
+            XCTAssertTrue(wStrefie % 15 + pole.encoding.byteLength <= 15,
+                          "\(pole.id) wystaje za koniec swojego rekordu.")
+        }
+    }
+
     /// `unmappedTM2` ma zostać nietknięty — zależą od niego pozostałe testy
     /// i tryb pracy „jeszcze nic nie wiem o formacie".
     func testUnmappedLayoutStaysUnmapped() {

@@ -211,6 +211,11 @@ class Opis:
         self.klucz_grupy = klucz_grupy  # do grupowania sąsiednich bajtów tego samego pola
 
 
+# Kolejność rekordów ustawień wejść, ustalona pomiarami: zmiana zrobiona
+# na TRIG IN 1 head trafia w rekord pierwszy, na TRIG IN 2 -- w trzeci.
+NAZWY_WEJSC = ["TRIG IN 1 head", "TRIG IN 1 rim", "TRIG IN 2 head", "TRIG IN 2 rim"]
+
+
 def rozpoznaj_offset(offset: int, rozmiar_pliku: int, pola: dict) -> Opis:
     geo = pola["geometria"]
 
@@ -279,7 +284,32 @@ def rozpoznaj_offset(offset: int, rozmiar_pliku: int, pola: dict) -> Opis:
             f"nieznane_kit:{nr_kitu}",
         )
 
-    # 4. Nagłówek pliku, przed blokiem kitów.
+    # 4. Strefa globalnych ustawień wejść triggerowych.
+    #
+    # Osobna gałąź, bo bez niej każdy nierozpoznany bajt z tej strefy był
+    # podpisywany jako "nagłówek pliku" -- a to są cztery regularne rekordy
+    # po 15 B i warto widzieć, w którym rekordzie i pod jakim offsetem
+    # wewnątrz niego wypadła zmiana.
+    ustawienia_od = geo.get("ustawieniaWejscOd")
+    krok_wejscia = geo.get("krokUstawienWejscia")
+    liczba_wejsc = geo.get("liczbaUstawienWejsc")
+    if ustawienia_od is not None and krok_wejscia and liczba_wejsc:
+        koniec = ustawienia_od + krok_wejscia * liczba_wejsc
+        if ustawienia_od <= offset < koniec:
+            wzgledem = offset - ustawienia_od
+            nr0 = wzgledem // krok_wejscia
+            w_rekordzie = wzgledem % krok_wejscia
+            nazwa = NAZWY_WEJSC[nr0] if nr0 < len(NAZWY_WEJSC) else f"wejście {nr0 + 1}"
+            return Opis(
+                f"ustawienia wejścia {nazwa}, offset +0x{w_rekordzie:X} w rekordzie "
+                f"-- NIEZNANE POLE",
+                False,
+                # Klucz bez offsetu, żeby sąsiadujące nieznane bajty tego
+                # samego rekordu skleiły się w jedną grupę.
+                f"nieznane_wejscie:{nr0 + 1}",
+            )
+
+    # 5. Nagłówek pliku, przed strefą ustawień wejść.
     return Opis(f"nagłówek pliku, offset 0x{offset:X} -- NIEZNANE POLE", False, "nieznany_naglowek")
 
 

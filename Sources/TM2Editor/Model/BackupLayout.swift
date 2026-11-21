@@ -375,30 +375,88 @@ extension BackupLayout {
         // jak działa sprzęt: czułość zależy od pada wpiętego w gniazdo,
         // a nie od tego, jakie brzmienie akurat gra.
         //
-        // Na razie znamy jedno pole w tym rekordzie — Sensitivity pod +0x02.
-        // Reszta (próg, krzywa, typ pada, mask time, retrig cancel) czeka
-        // na pomiary; każde nowe pole dopisuje się tu czterema wpisami.
+        // Kolejność pól w rekordzie zgadza się z kolejnością w menu modułu.
+        // Para plików `trigger_max.bin` / `trigger_min.bin` (2026-11-21):
+        // wszystkie parametry wejścia TRIG IN 1 head wykręcone na maksimum,
+        // a potem na minimum. Zmieniły się WYŁĄCZNIE bajty +0x01…+0x0A
+        // pierwszego rekordu — pozostałe trzy rekordy nie drgnęły, co
+        // potwierdza i granice rekordu, i to, że ustawienia są per trigger.
+        //
+        //   +0x00  Input (HEAD&RIM / PADx2) -- nietknięte w teście
+        //   +0x01  Type            1…31   <- NIE wystawiamy do edycji, patrz niżej
+        //   +0x02  Sensitivity     1…32
+        //   +0x03  Threshold       0…31
+        //   +0x04  Curve           0…6
+        //   +0x05  Retrig Cancel   16…40  <- zakres podejrzany, patrz niżej
+        //   +0x06  Rim Gain        1…16
+        //   +0x07  H/R Adjust      ?      <- w teście „max" nie drgnęło
+        //   +0x08  +0x09  +0x0A    20/0…80  <- XTLK Cancel, Noise Cancel i coś trzeciego
+        //   +0x0B  ?               w bazie 2, w obu testach 0
+        //
+        // `Type` zostaje świadomie POZA edycją. Instrukcja mówi, a Arek
+        // potwierdził z własnej praktyki, że zmiana typu pada przestawia
+        // wartości pozostałych parametrów. Moduł robi to sam przy zmianie
+        // w menu; edytor pliku nie ma skąd wiedzieć, jakie są domyślne
+        // wartości dla danego typu, więc zapisanie samego `Type` zostawiłoby
+        // w pliku komplet parametrów od poprzedniego pada. Inspektor heks
+        // ten bajt pokazuje — do edycji wróci, kiedy poznamy tablicę
+        // domyślnych wartości dla każdego typu.
+        //
+        // Z tego samego powodu zakresy niżej są OSTROŻNE: zmierzono je przy
+        // dwóch różnych typach pada (31 w teście maksimum, 1 w minimum), więc
+        // nie da się rozdzielić „maksimum parametru" od „wartości domyślnej
+        // dla tego typu". Dlatego dolne i górne granice są brane wprost
+        // z pomiaru, bez zaokrąglania w stronę ładnych liczb.
         let trigUstawieniaOd = 0x40
         let trigUstawieniaKrok = 15
         let nazwyTrigerow = ["TRIG IN 1 head", "TRIG IN 1 rim",
                              "TRIG IN 2 head", "TRIG IN 2 rim"]
 
+        /// Pola rekordu ustawień wejścia: offset w rekordzie, etykieta,
+        /// zakres i notatka.
+        let polaWejscia: [(Int, String, Int, Int, String)] = [
+            (0x02, "Sensitivity", 1, 32,
+             "Maksimum potwierdzone na wyświetlaczu (32 = 32, skala 1:1)."
+                + " Minimum potwierdzone pomiarem `trigger_min.bin`: 1."),
+            (0x03, "Threshold", 0, 31,
+             "Zakres z pary max/min: 0…31. Odczyt z wyświetlacza"
+                + " niepotwierdzony, więc skala może nie być 1:1."),
+            (0x04, "Curve", 0, 6,
+             "Zakres z pary max/min: 0…6, czyli siedem krzywych. Stara"
+                + " instrukcja wymienia pięć (LINEAR, LOG1, LOG2, LOUD1,"
+                + " LOUD2) — firmware Arka ma ich więcej. Nazwy nieznane,"
+                + " więc pole jest liczbą, a nie listą wyboru."),
+            (0x05, "Retrig Cancel", 16, 40,
+             "UWAGA: zakres 16…40 wzięty wprost z pomiaru i jest podejrzany"
+                + " — u Rolanda ten parametr ma zwykle 1…16. Najpewniej"
+                + " widzimy tu wartości zależne od typu pada, a nie czyste"
+                + " granice parametru. Do przemierzenia przy stałym Type."),
+            (0x06, "Rim Gain", 1, 16,
+             "Zakres z pary max/min: 1…16. Dotyczy obręczy, ale w pliku"
+                + " siedzi w rekordzie konkretnego triggera, nie gniazda."),
+        ]
+
         for (numer, nazwa) in nazwyTrigerow.enumerated() {
-            layout.globalFields.append(
-                FieldSpec(
-                    id: "trigset.\(numer + 1).sensitivity",
-                    label: "Sensitivity — \(nazwa)",
-                    scope: .global,
-                    group: .triggerInput,
-                    offset: trigUstawieniaOd + numer * trigUstawieniaKrok + 0x02,
-                    encoding: .unsigned(min: 1, max: 32),
-                    note: "Zmierzone 2026-11-21: maksimum na wyświetlaczu to 32"
-                        + " i w pliku też 32, czyli skala 1:1. Dolna granica"
-                        + " NIEZMIERZONA — przyjęte 1, bo tak zwykle u Rolanda."
-                        + " Ustawienie globalne modułu, nie kitu: zmiana zrobiona"
-                        + " przy wybranym kicie 40 trafiła w ten sam bajt."
+            let baza = trigUstawieniaOd + numer * trigUstawieniaKrok
+            // Nazwy `dolny`/`gorny`, a nie `min`/`max` — te drugie zasłoniłyby
+            // globalne funkcje `min`/`max` Swifta w całym ciele pętli.
+            for (wRekordzie, etykieta, dolny, gorny, notatka) in polaWejscia {
+                layout.globalFields.append(
+                    FieldSpec(
+                        id: "trigset.\(numer + 1)."
+                            + etykieta.lowercased().replacingOccurrences(of: " ", with: ""),
+                        label: "\(etykieta) — \(nazwa)",
+                        scope: .global,
+                        group: .triggerInput,
+                        offset: baza + wRekordzie,
+                        encoding: .unsigned(min: dolny, max: gorny),
+                        note: notatka
+                            + " Ustawienie globalne modułu, nie kitu: zmiana"
+                            + " zrobiona przy wybranym kicie 40 trafiła"
+                            + " w ten sam bajt."
+                    )
                 )
-            )
+            }
         }
 
         return layout

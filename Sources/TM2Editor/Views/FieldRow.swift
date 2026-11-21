@@ -85,7 +85,9 @@ struct FieldRow: View {
 
         default:
             HStack(spacing: 10) {
-                if let range = field.encoding.numericRange, range.count <= 512 {
+                // Próg podniesiony z 512 na 4096: offset ma zakres 0…3000
+                // i bez suwaka trzeba by go klikać stepperem trzy tysiące razy.
+                if let range = field.encoding.numericRange, range.count <= 4096 {
                     Slider(
                         value: Binding(
                             get: { Double(numberBinding.wrappedValue) },
@@ -94,20 +96,43 @@ struct FieldRow: View {
                         in: Double(range.lowerBound)...Double(range.upperBound),
                         step: 1
                     )
-                    .frame(width: 160)
+                    .frame(width: 140)
                 }
 
-                Stepper(
-                    value: numberBinding,
-                    in: field.encoding.numericRange ?? 0...255
-                ) {
-                    Text("\(numberBinding.wrappedValue)")
+                // Wartość MUSI być widoczna. Wcześniej był tu tylko Stepper
+                // z liczbą jako etykietą — a `.labelsHidden()` ukrywał etykietę
+                // razem z liczbą, więc przy polach bez suwaka nie było widać nic.
+                VStack(alignment: .trailing, spacing: 0) {
+                    Text(displayedValue)
                         .font(.system(.body, design: .monospaced))
-                        .frame(width: 44, alignment: .trailing)
+                    if let raw = rawValueText {
+                        Text(raw)
+                            .font(.system(.caption2, design: .monospaced))
+                            .foregroundStyle(.tertiary)
+                    }
                 }
-                .labelsHidden()
+                .frame(width: 76, alignment: .trailing)
+
+                Stepper("", value: numberBinding,
+                        in: field.encoding.numericRange ?? 0...255)
+                    .labelsHidden()
             }
         }
+    }
+
+    /// Wartość tak, jak pokazałby ją moduł: `L15`, `300.0 ms`, albo po prostu
+    /// liczba, jeśli pole nie ma własnego sposobu wyświetlania.
+    private var displayedValue: String {
+        (field.display ?? .plain).text(for: numberBinding.wrappedValue)
+    }
+
+    /// Surowa liczba dziesiętna spod spodu — pokazywana drobnym drukiem tylko
+    /// wtedy, gdy różni się od tego, co widać wyżej. Przy mapowaniu trzeba
+    /// wiedzieć, co naprawdę siedzi w pliku, a nie tylko jak to wygląda.
+    private var rawValueText: String? {
+        let raw = numberBinding.wrappedValue
+        let shown = displayedValue
+        return shown == String(raw) ? nil : String(raw)
     }
 
     // MARK: - Powiązania
@@ -166,7 +191,11 @@ struct FieldRow: View {
         guard let offset = editor.layout.absoluteOffset(for: field, kit: kit, trigger: trigger) else {
             return nil
         }
-        var parts = [String(format: "0x%X", offset)]
+        // Offset szesnastkowo I dziesiętnie. Szesnastkowy zgadza się z tym, co
+        // pokazuje inspektor heks i co wypisuje analizator różnicowy; dziesiętny
+        // jest po to, żeby nie trzeba było mieć kalkulatora w głowie przy
+        // porównywaniu z logami i notatkami z mapowania.
+        var parts = [String(format: "0x%X (%d)", offset, offset)]
         if let range = field.encoding.numericRange, !field.encoding.isTextual {
             parts.append("\(range.lowerBound)…\(range.upperBound)")
         }

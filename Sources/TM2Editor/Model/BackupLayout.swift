@@ -481,6 +481,7 @@ extension BackupLayout {
                 // czyli w pliku bajt 0..30.
                 layout.triggerFields[index].offset = 8
                 layout.triggerFields[index].encoding = .biased(bias: 15, min: -15, max: 15)
+                layout.triggerFields[index].display = .panLeftRight
                 layout.triggerFields[index].note = "Zmierzone 2026-09-04 na obu"
                     + " skrajnościach: L15 to bajt 0, R15 to bajt 30."
                     + " Środek (CENTER) wypada na 15 — zgodne z tym, że kit 1"
@@ -529,7 +530,8 @@ extension BackupLayout {
                     + " o wykręcenie na maksimum — ale sam fakt, że to jest"
                     + " maksimum, nie został potwierdzony wprost. Lepiej, żeby"
                     + " edytor odmówił wartości legalnej, niż żeby wpisał"
-                    + " do pliku wartość, której moduł nigdy by nie wystawił."
+                    + " do pliku wartość, której moduł nigdy by nie wystawił.",
+                display: .scaled(divisor: 10, fractionDigits: 1, unit: "ms")
             )
         )
 

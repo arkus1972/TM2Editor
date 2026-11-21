@@ -326,6 +326,40 @@ final class BackupFileTests: XCTestCase {
                      "trig.offset ma istnieć tylko w layoucie zmierzonym.")
     }
 
+    // MARK: - Wyświetlanie wartości
+
+    /// Edytor ma mówić językiem modułu, nie językiem bajtów: moduł pokazuje
+    /// `L15` i `300.0 ms` tam, gdzie w pliku siedzi `0` i `3000`.
+    func testFieldDisplayFormatsValuesTheWayModuleDoes() {
+        XCTAssertEqual(FieldDisplay.panLeftRight.text(for: -15), "L15")
+        XCTAssertEqual(FieldDisplay.panLeftRight.text(for: 0), "CENTER")
+        XCTAssertEqual(FieldDisplay.panLeftRight.text(for: 15), "R15")
+        XCTAssertEqual(FieldDisplay.panLeftRight.text(for: -3), "L3")
+
+        let ms = FieldDisplay.scaled(divisor: 10, fractionDigits: 1, unit: "ms")
+        XCTAssertEqual(ms.text(for: 3000), "300.0 ms")
+        XCTAssertEqual(ms.text(for: 1), "0.1 ms")
+        XCTAssertEqual(ms.text(for: 0), "0.0 ms")
+
+        XCTAssertEqual(FieldDisplay.plain.text(for: -120), "-120")
+
+        // Dzielnik 0 to błąd w opisie układu, ale widok nie ma od tego padać —
+        // ma pokazać surową liczbę, bo to nadal prawda o zawartości pliku.
+        let zepsute = FieldDisplay.scaled(divisor: 0, fractionDigits: 1, unit: "ms")
+        XCTAssertEqual(zepsute.text(for: 42), "42")
+    }
+
+    /// Pola, które mają własny sposób wyświetlania, muszą go realnie mieć
+    /// w zmierzonym layoucie — inaczej poprawka widoku nic nie zmienia.
+    func testMappedLayoutAssignsDisplayStyles() {
+        let layout = BackupLayout.mapped2026_09_02
+        let pan = layout.triggerFields.first(where: { $0.id == "trig.pan" })
+        let offset = layout.triggerFields.first(where: { $0.id == "trig.offset" })
+
+        XCTAssertEqual(pan?.display, .panLeftRight)
+        XCTAssertEqual(offset?.display, .scaled(divisor: 10, fractionDigits: 1, unit: "ms"))
+    }
+
     // MARK: - Oryginał nietknięty
 
     func testOriginalBytesSurviveEditing() throws {

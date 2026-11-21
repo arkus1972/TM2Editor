@@ -121,6 +121,44 @@ enum FieldEncoding: Codable, Equatable {
     }
 }
 
+/// Jak pokazać wartość użytkownikowi.
+///
+/// Sposób zapisu w pliku i sposób pokazania to dwie różne rzeczy. Moduł na
+/// wyświetlaczu pokazuje `L15` i `300 ms`, a w pliku siedzi `0` i `3000` —
+/// i dobrze, żeby edytor mówił językiem modułu, a nie językiem bajtów.
+/// Surowa wartość zostaje dostępna w dymku, bo przy mapowaniu bywa potrzebna.
+enum FieldDisplay: Codable, Equatable {
+
+    /// Liczba wprost, bez upiększeń.
+    case plain
+
+    /// Panorama: ujemne jako `L…`, dodatnie jako `R…`, zero jako `CENTER`.
+    case panLeftRight
+
+    /// Wartość przeskalowana w dół, z jednostką: 3000 przy dzielniku 10
+    /// i jednym miejscu po przecinku daje `300.0 ms`.
+    case scaled(divisor: Int, fractionDigits: Int, unit: String)
+
+    func text(for value: Int) -> String {
+        switch self {
+        case .plain:
+            return String(value)
+
+        case .panLeftRight:
+            if value == 0 { return "CENTER" }
+            return value < 0 ? "L\(-value)" : "R\(value)"
+
+        case .scaled(let divisor, let fractionDigits, let unit):
+            // Dzielnik 0 byłby błędem w opisie układu, ale widok nie jest od
+            // zgłaszania błędów — pokazuje wtedy surową liczbę, co i tak jest
+            // prawdą o zawartości pliku.
+            guard divisor > 0 else { return String(value) }
+            let scaled = Double(value) / Double(divisor)
+            return String(format: "%.\(fractionDigits)f %@", scaled, unit)
+        }
+    }
+}
+
 /// Opis jednego edytowalnego parametru.
 ///
 /// `offset` jest opcjonalny i to jest celowe: pole opisane, ale jeszcze
@@ -148,6 +186,11 @@ struct FieldSpec: Codable, Equatable, Identifiable, Hashable {
 
     /// Notatka robocza (po polsku) — co wiemy, czego nie wiemy, co sprawdzić.
     var note: String?
+
+    /// Jak pokazać wartość. `nil` = liczba wprost.
+    /// Opcjonalne celowo: stary `tm2-layout.json` bez tego klucza ma się
+    /// nadal wczytywać bez błędu.
+    var display: FieldDisplay? = nil
 
     var isMapped: Bool { offset != nil }
 

@@ -90,31 +90,46 @@ struct KitListView: View, Equatable {
 
             Divider()
 
-            List(Array(1...kitCount), id: \.self, selection: kitSelection) { kit in
-                HStack(spacing: 8) {
-                    Text(String(format: "%02d", kit))
-                        .font(.system(.body, design: .monospaced))
-                        .foregroundStyle(.secondary)
-                        .frame(width: 28, alignment: .trailing)
+            // ScrollViewReader, żeby móc dojechać do zaznaczonego wiersza.
+            // Samo ustawienie zaznaczenia nie przewija listy, a edytor staje
+            // teraz na kicie wybranym w module — przy kicie 40 z dziewięćdziesięciu
+            // dziewięciu lista pokazywałaby górę, a podświetlony wiersz byłby
+            // poza ekranem. Wyglądałoby to jak brak zaznaczenia.
+            ScrollViewReader { widok in
+                List(Array(1...kitCount), id: \.self, selection: kitSelection) { kit in
+                    HStack(spacing: 8) {
+                        Text(String(format: "%02d", kit))
+                            .font(.system(.body, design: .monospaced))
+                            .foregroundStyle(.secondary)
+                            .frame(width: 28, alignment: .trailing)
 
-                    if let name = name(for: kit) {
-                        Text(name)
-                    } else {
-                        Text("—")
-                            .foregroundStyle(.tertiary)
+                        if let name = name(for: kit) {
+                            Text(name)
+                        } else {
+                            Text("—")
+                                .foregroundStyle(.tertiary)
+                        }
+
+                        Spacer()
+
+                        if changedKits.contains(kit) {
+                            Circle()
+                                .fill(Color.orange)
+                                .frame(width: 6, height: 6)
+                        }
                     }
-
-                    Spacer()
-
-                    if changedKits.contains(kit) {
-                        Circle()
-                            .fill(Color.orange)
-                            .frame(width: 6, height: 6)
-                    }
+                    .tag(kit)
+                    .id(kit)
                 }
-                .tag(kit)
+                .listStyle(.inset)
+                .onAppear {
+                    // Tylko przy pierwszym pokazaniu listy. Później przewijaniem
+                    // rządzi użytkownik i nie ma nic gorszego niż widok, który
+                    // sam odskakuje.
+                    guard selected > 1 else { return }
+                    widok.scrollTo(selected, anchor: .center)
+                }
             }
-            .listStyle(.inset)
         }
     }
 

@@ -503,6 +503,32 @@ final class BackupFileTests: XCTestCase {
         XCTAssertNotNil(pusty.triggerFields.first { $0.id == "trig.sensitivity" })
     }
 
+    /// Po wczytaniu pliku edytor ma stanąć na kicie, który był wybrany
+    /// na module — nie zawsze na kicie 1. Wartość w pliku jest liczona
+    /// od zera, numer kitu od jedynki.
+    func testKitSelectedOnModuleIsReadFromTheFile() {
+        var layout = BackupLayout.mapped2026_09_02
+        XCTAssertEqual(layout.currentKitPointerOffset, 0x36)
+
+        var bytes = [UInt8](repeating: 0, count: 124_748)
+        bytes[0x36] = 39                      // kit 40, liczony od zera
+        let plik = BackupFile(bytes: bytes, layout: layout)
+        XCTAssertEqual(plik.kitSelectedOnModule, 40)
+
+        bytes[0x36] = 0
+        XCTAssertEqual(BackupFile(bytes: bytes, layout: layout).kitSelectedOnModule, 1)
+
+        // Wartość spoza liczby kitów to znak, że coś jest nie tak z plikiem
+        // albo z offsetem. Wtedy ani nie zgadujemy, ani nie przycinamy.
+        bytes[0x36] = 200
+        XCTAssertNil(BackupFile(bytes: bytes, layout: layout).kitSelectedOnModule)
+
+        // Układ, który tego bajtu nie zna, nie udaje, że wie.
+        layout.currentKitPointerOffset = nil
+        bytes[0x36] = 39
+        XCTAssertNil(BackupFile(bytes: bytes, layout: layout).kitSelectedOnModule)
+    }
+
     /// `unmappedTM2` ma zostać nietknięty — zależą od niego pozostałe testy
     /// i tryb pracy „jeszcze nic nie wiem o formacie".
     func testUnmappedLayoutStaysUnmapped() {

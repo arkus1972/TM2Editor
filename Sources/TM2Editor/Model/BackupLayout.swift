@@ -52,6 +52,14 @@ struct BackupLayout: Codable, Equatable {
     /// dual-trigger, czyli do 4 triggerów.
     var triggerCount: Int = 4
 
+    /// Offset bajtu, w którym moduł zapisuje, który kit był wybrany
+    /// w chwili BACKUP SAVE. Numeracja w pliku jest od zera.
+    ///
+    /// To nie jest pole do edycji, więc nie ma go na liście `globalFields` —
+    /// służy wyłącznie do tego, żeby po otwarciu pliku stanąć na tym kicie,
+    /// nad którym użytkownik ostatnio pracował na sprzęcie.
+    var currentKitPointerOffset: Int?
+
     /// Opis sumy kontrolnej, jeśli plik ją nosi.
     var checksum: ChecksumSpec?
 
@@ -420,6 +428,12 @@ extension BackupLayout {
         // nie da się rozdzielić „maksimum parametru" od „wartości domyślnej
         // dla tego typu". Dlatego dolne i górne granice są brane wprost
         // z pomiaru, bez zaokrąglania w stronę ładnych liczb.
+        // Wskaźnik bieżącego kitu. Zmierzony 2026-09-04: w teście zrobionym
+        // na kicie 40 ten bajt pokazał 0x27, czyli 39 — numer kitu liczony
+        // od zera. Wcześniejsze próbki (0 i 1) nie pozwalały tego odróżnić
+        // od flagi albo bitmapy.
+        layout.currentKitPointerOffset = 0x36
+
         let trigUstawieniaOd = 0x40
         let trigUstawieniaKrok = 15
         let nazwyTrigerow = ["TRIG IN 1 head", "TRIG IN 1 rim",

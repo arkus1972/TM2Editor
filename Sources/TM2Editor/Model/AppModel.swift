@@ -93,8 +93,20 @@ final class AppModel: ObservableObject {
             let file = try BackupFile(contentsOf: url, layout: layout)
             let editor = KitEditor(file: file, log: log)
             self.editor = editor
-            self.selection.reset()
             self.validationWarnings = file.validate()
+
+            // Stajemy na kicie, który był wybrany na module w chwili zapisu.
+            // Wcześniej edytor zawsze startował od kitu 1 i to realnie mylilo:
+            // po wczytaniu backupu z parametrami zmienionymi na kicie 40
+            // pierwszy ekran pokazywał nietknięte wartości kitu 1 i wyglądało
+            // to jak błąd odczytu. Plik wie, nad czym się pracowało — wystarczy
+            // z tego skorzystać.
+            self.selection.reset()
+            if let biezacy = file.kitSelectedOnModule {
+                self.selection.kit = biezacy
+                log.append(.info, "Moduł miał wybrany kit \(biezacy)"
+                    + " — edytor staje na nim")
+            }
 
             log.append(.info, "Wczytano \(url.lastPathComponent) "
                 + "(\(file.size) bajtów)")

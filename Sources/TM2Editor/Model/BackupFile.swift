@@ -122,6 +122,21 @@ struct BackupFile {
 
     // MARK: - Dostęp do surowych bajtów
 
+    /// Który kit był wybrany na module w chwili zapisu backupu,
+    /// numerowany od 1 jak w module. `nil`, jeśli układ tego nie zna
+    /// albo zapisana wartość nie mieści się w liczbie kitów.
+    ///
+    /// Świadomie bez żadnego ratowania wartości: numer spoza zakresu
+    /// oznacza, że albo offset jest zły, albo plik nie jest tym, za co
+    /// się podaje. W obu przypadkach lepiej nie udawać, że wiemy.
+    var kitSelectedOnModule: Int? {
+        guard let offset = layout.currentKitPointerOffset,
+              let raw = byte(at: offset) else { return nil }
+        let numer = Int(raw) + 1          // w pliku liczone od zera
+        guard numer >= 1, numer <= layout.kitCount else { return nil }
+        return numer
+    }
+
     func byte(at offset: Int) -> UInt8? {
         guard offset >= 0 && offset < bytes.count else { return nil }
         return bytes[offset]

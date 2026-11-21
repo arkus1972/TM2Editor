@@ -283,6 +283,11 @@ final class KitEditor: ObservableObject {
 
     /// Cofa wszystko naraz. Przywraca dokładnie wczytany plik.
     func revertAll() {
+        // „Cofnij wszystko" obejmuje też tekst wpisany, a jeszcze
+        // niezatwierdzony — inaczej wróciłby przy najbliższym zapisie
+        // i odtworzył zmianę, którą użytkownik właśnie wycofał.
+        niezatwierdzonyTekst.removeAll()
+
         // Twardy ogranicznik pętli, niezależny od tego, czy `undo()` zdejmuje
         // zmianę ze stosu. Lepiej wyjść z niepełnym cofnięciem i zapisać to
         // w logu niż zawiesić program.
@@ -304,7 +309,70 @@ final class KitEditor: ObservableObject {
 
     /// Zapisuje do nowego pliku. Nigdy nie nadpisuje oryginału z karty —
     /// to jest twarda zasada projektu, nie preferencja.
+    // MARK: - Niezatwierdzony tekst
+
+    /// Tekst wpisany w pole, ale jeszcze niezatwierdzony Enterem.
+    ///
+    /// Pola tekstowe mają bufor, żeby każda wpisana litera nie trafiała na
+    /// listę zmian jako osobna pozycja. Kosztem jest pułapka, w którą Arek
+    /// wpadł przy pierwszym teście na sprzęcie: wpisał nazwę kitu, kliknął
+    /// „Save As…" bez Entera i w zapisanym pliku została stara nazwa.
+    /// Parametry liczbowe się zapisały, nazwa nie — najgorszy możliwy rodzaj
+    /// niespójności, bo wygląda na błąd zapisu nazw.
+    ///
+    /// Dlatego widok melduje tu każdą zmianę w buforze, a zapis opróżnia
+    /// rejestr, zanim ruszy bajty. Celowo NIE jest to `@Published`: wpis
+    /// leci przy każdym naciśnięciu klawisza i nie ma po co przerysowywać
+    /// z tego powodu widoku.
+    private var niezatwierdzonyTekst: [String: (pole: FieldSpec, kit: Int,
+                                                trigger: Int, tekst: String)] = [:]
+
+    /// Klucz jest trójką pole-kit-trigger, bo ten sam `FieldSpec` obsługuje
+    /// wszystkie kity i triggery.
+    private func kluczTekstu(_ field: FieldSpec, kit: Int, trigger: Int) -> String {
+        "\(field.id)#\(kit)#\(trigger)"
+    }
+
+    func rememberPendingText(_ tekst: String, for field: FieldSpec,
+                             kit: Int, trigger: Int) {
+        niezatwierdzonyTekst[kluczTekstu(field, kit: kit, trigger: trigger)] =
+            (field, kit, trigger, tekst)
+    }
+
+    func forgetPendingText(for field: FieldSpec, kit: Int, trigger: Int) {
+        niezatwierdzonyTekst[kluczTekstu(field, kit: kit, trigger: trigger)] = nil
+    }
+
+    /// Zapisuje wszystko, co czeka w buforach pól tekstowych.
+    /// Zwraca liczbę pól, które faktycznie zmieniły wartość.
+    @discardableResult
+    func flushPendingText() -> Int {
+        guard !niezatwierdzonyTekst.isEmpty else { return 0 }
+        // Kolejność deterministyczna, żeby log i lista zmian wyglądały tak
+        // samo przy każdym uruchomieniu.
+        let oczekujace = niezatwierdzonyTekst.keys.sorted().compactMap {
+            niezatwierdzonyTekst[$0]
+        }
+        niezatwierdzonyTekst.removeAll()
+
+        var zapisane = 0
+        for wpis in oczekujace {
+            let przed = changes.count
+            set(.text(wpis.tekst), for: wpis.pole, kit: wpis.kit, trigger: wpis.trigger)
+            if changes.count != przed { zapisane += 1 }
+        }
+        if zapisane > 0 {
+            log.append(.info, "Zatwierdzono \(zapisane) niewysłanych zmian"
+                + " w polach tekstowych przed zapisem")
+        }
+        return zapisane
+    }
+
     func save(to url: URL) {
+        // Tekst wpisany bez Entera też jest zmianą, której użytkownik
+        // oczekuje w pliku.
+        flushPendingText()
+
         // Porównanie URL-i jest tekstowe, więc /Volumes/SD/BACKUP i
         // /Volumes/SD/./BACKUP byłyby „różne", mimo że to ten sam plik.
         // Przy zasadzie „nigdy nie nadpisujemy oryginału" to za mało —

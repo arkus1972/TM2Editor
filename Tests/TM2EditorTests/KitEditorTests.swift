@@ -321,4 +321,81 @@ final class KitEditorTests: XCTestCase {
         XCTAssertEqual(selection.kit, 1, "Nowy plik ma startować od kitu 1.")
         XCTAssertEqual(selection.trigger, 1)
     }
+
+    // MARK: - Niezatwierdzony tekst
+
+    private func nameField(_ editor: KitEditor) -> FieldSpec {
+        // swiftlint:disable:next force_unwrapping
+        return editor.layout.kitFields.first { $0.id == "kit.name" }!
+    }
+
+    /// Pierwszy test edytora na prawdziwym sprzęcie wyłapał to: Arek wpisał
+    /// nazwę kitu, kliknął „Save As…" bez naciśnięcia Entera i w zapisanym
+    /// pliku została stara nazwa, choć parametry liczbowe zapisały się
+    /// poprawnie. Zapis musi brać to, co użytkownik widzi na ekranie.
+    func testZapisZatwierdzaTekstWpisanyBezEntera() throws {
+        let editor = makeEditor()
+        let pole = nameField(editor)
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("tm2-out-\(UUID().uuidString).bin")
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        editor.rememberPendingText("DUPAKIT", for: pole, kit: 99, trigger: 1)
+        XCTAssertTrue(editor.changes.isEmpty, "Sam bufor nie jest jeszcze zmianą.")
+
+        editor.save(to: url)
+
+        XCTAssertNil(editor.lastError)
+        XCTAssertEqual(editor.kitName(99), "DUPAKIT",
+                       "Zapis miał zatwierdzić tekst z bufora.")
+        XCTAssertEqual(editor.kitNames[98], "DUPAKIT",
+                       "Lista kitów ma pokazać nową nazwę.")
+
+        // I to samo w pliku na dysku, nie tylko w pamięci.
+        let zapisane = try Data(contentsOf: url)
+        let odczytany = BackupFile(bytes: [UInt8](zapisane), layout: editor.layout)
+        XCTAssertEqual(odczytany.value(of: pole, kit: 99, trigger: 1)?.textValue,
+                       "DUPAKIT")
+    }
+
+    /// Bufor jest jednorazowy: po zatwierdzeniu nie może wrócić przy
+    /// następnym zapisie i cofnąć ręcznej edycji zrobionej w międzyczasie.
+    func testZatwierdzonyTekstNieWracaPrzyKolejnymZapisie() {
+        let editor = makeEditor()
+        let pole = nameField(editor)
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("tm2-out-\(UUID().uuidString).bin")
+        let drugi = FileManager.default.temporaryDirectory
+            .appendingPathComponent("tm2-out-\(UUID().uuidString).bin")
+        defer {
+            try? FileManager.default.removeItem(at: url)
+            try? FileManager.default.removeItem(at: drugi)
+        }
+
+        editor.rememberPendingText("PIERWSZA", for: pole, kit: 5, trigger: 1)
+        editor.save(to: url)
+        XCTAssertEqual(editor.kitName(5), "PIERWSZA")
+
+        editor.set(.text("DRUGA"), for: pole, kit: 5, trigger: 1)
+        editor.save(to: drugi)
+        XCTAssertEqual(editor.kitName(5), "DRUGA",
+                       "Stary bufor nie może wrócić i nadpisać nowszej edycji.")
+    }
+
+    /// Zapominanie bufora (np. po Enterze) ma działać — inaczej zapis
+    /// dopisywałby do listy zmian drugą, identyczną pozycję.
+    func testZapomnianyBuforNieJestJuzZapisywany() {
+        let editor = makeEditor()
+        let pole = nameField(editor)
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("tm2-out-\(UUID().uuidString).bin")
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        editor.rememberPendingText("ABC", for: pole, kit: 3, trigger: 1)
+        editor.forgetPendingText(for: pole, kit: 3, trigger: 1)
+        editor.save(to: url)
+
+        XCTAssertTrue(editor.changes.isEmpty,
+                      "Porzucony bufor nie może trafić do pliku.")
+    }
 }

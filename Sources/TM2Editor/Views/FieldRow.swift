@@ -59,14 +59,18 @@ struct FieldRow: View {
             TextField("", text: textBinding)
                 .textFieldStyle(.roundedBorder)
                 .frame(width: 180)
+                .focused($maTekstFokus)
                 .onSubmit { commitText() }
+                .onChange(of: maTekstFokus) { zatwierdzPoUtracieFokusu($0) }
                 .help("Maximum \(length) ASCII characters.")
 
         case .utf16LE(let length):
             TextField("", text: textBinding)
                 .textFieldStyle(.roundedBorder)
                 .frame(width: 180)
+                .focused($maTekstFokus)
                 .onSubmit { commitText() }
+                .onChange(of: maTekstFokus) { zatwierdzPoUtracieFokusu($0) }
                 .help("Maximum \(length / 2) characters.")
 
         case .boolean, .bit:
@@ -160,6 +164,7 @@ struct FieldRow: View {
     /// jako osobna pozycja.
     @State private var textBuffer: String = ""
     @State private var textLoaded = false
+    @FocusState private var maTekstFokus: Bool
 
     private var textBinding: Binding<String> {
         Binding(
@@ -172,6 +177,12 @@ struct FieldRow: View {
             set: { newValue in
                 textBuffer = newValue
                 textLoaded = true
+                // Meldunek dla edytora: gdyby użytkownik zapisał plik bez
+                // naciśnięcia Entera, zapis i tak ma wziąć to, co widzi
+                // na ekranie. Bez tego nazwa kitu zostawała stara, choć
+                // parametry liczbowe zapisywały się poprawnie.
+                editor.rememberPendingText(newValue, for: field,
+                                           kit: kit, trigger: trigger)
             }
         )
     }
@@ -179,7 +190,16 @@ struct FieldRow: View {
     private func commitText() {
         guard textLoaded else { return }
         editor.set(.text(textBuffer), for: field, kit: kit, trigger: trigger)
+        editor.forgetPendingText(for: field, kit: kit, trigger: trigger)
         textLoaded = false
+    }
+
+    /// Wyjście z pola myszą albo tabulatorem zatwierdza tak samo jak Enter.
+    /// Dzięki temu nazwa kitu pojawia się na liście po lewej od razu, a nie
+    /// dopiero po Enterze — czego nikt nie ma obowiązku się domyślać.
+    private func zatwierdzPoUtracieFokusu(_ maFokus: Bool) {
+        guard !maFokus else { return }
+        commitText()
     }
 
     // MARK: - Opis pod etykietą

@@ -10,8 +10,21 @@ struct KitBrowserView: View {
 
     var body: some View {
         HSplitView {
-            KitListView(editor: editor)
-                .frame(minWidth: 200, idealWidth: 240, maxWidth: 320)
+            // Lista dostaje GOTOWE wartości, a nie cały obiekt edytora.
+            // Gdyby obserwowała edytor, każda zmiana czegokolwiek — choćby
+            // przełączenie triggera w prawym panelu — kazałaby SwiftUI
+            // przeładować całą 99-wierszową tabelę. Przy wartościach plus
+            // `.equatable()` przerysowanie jest pomijane, dopóki lista
+            // naprawdę się nie zmieni.
+            KitListView(
+                kitCount: max(editor.layout.kitCount, 1),
+                names: editor.kitNames,
+                changedKits: editor.changedKits,
+                selected: editor.selectedKit,
+                onSelect: { editor.selectedKit = $0 }
+            )
+            .equatable()
+            .frame(minWidth: 200, idealWidth: 240, maxWidth: 320)
 
             KitDetailView(editor: editor)
                 .frame(minWidth: 520)
@@ -21,9 +34,24 @@ struct KitBrowserView: View {
 
 // MARK: - Lista kitów
 
-struct KitListView: View {
+/// Lista 99 kitów.
+///
+/// Celowo NIE obserwuje `KitEditor`. Na macOS `List` z zaznaczeniem to pod
+/// spodem `NSTableView`, a przebudowa widoku oznacza pełne przeładowanie
+/// wszystkich wierszy. Gdy lista obserwowała edytor, przełączenie triggera
+/// w prawym panelu — zmiana, która tej listy nie dotyczy w ogóle —
+/// przeładowywało 99 wierszy, z których każdy dekodował nazwę kitu z pliku
+/// i przeszukiwał liniowo listę zmian. To był ten kilkusekundowy przestój.
+///
+/// Teraz widok dostaje gotowe wartości i jest `Equatable`, więc SwiftUI
+/// pomija przerysowanie, dopóki któraś z nich faktycznie się nie zmieni.
+struct KitListView: View, Equatable {
 
-    @ObservedObject var editor: KitEditor
+    let kitCount: Int
+    let names: [String?]
+    let changedKits: Set<Int>
+    let selected: Int
+    let onSelect: (Int) -> Void
 
     var body: some View {
         VStack(spacing: 0) {
@@ -32,7 +60,7 @@ struct KitListView: View {
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.secondary)
                 Spacer()
-                Text("\(editor.layout.kitCount)")
+                Text("\(kitCount)")
                     .font(.caption)
                     .foregroundStyle(.tertiary)
             }
@@ -41,15 +69,14 @@ struct KitListView: View {
 
             Divider()
 
-            List(Array(1...max(editor.layout.kitCount, 1)),
-                 id: \.self, selection: kitSelection) { kit in
+            List(Array(1...kitCount), id: \.self, selection: kitSelection) { kit in
                 HStack(spacing: 8) {
                     Text(String(format: "%02d", kit))
                         .font(.system(.body, design: .monospaced))
                         .foregroundStyle(.secondary)
                         .frame(width: 28, alignment: .trailing)
 
-                    if let name = editor.kitName(kit) {
+                    if let name = name(for: kit) {
                         Text(name)
                     } else {
                         Text("—")
@@ -58,7 +85,7 @@ struct KitListView: View {
 
                     Spacer()
 
-                    if hasChanges(in: kit) {
+                    if changedKits.contains(kit) {
                         Circle()
                             .fill(Color.orange)
                             .frame(width: 6, height: 6)
@@ -70,15 +97,29 @@ struct KitListView: View {
         }
     }
 
+    /// Nazwa z gotowego bufora. Indeks jest 0-based, numer kitu 1-based.
+    private func name(for kit: Int) -> String? {
+        let index = kit - 1
+        guard names.indices.contains(index) else { return nil }
+        return names[index]
+    }
+
     private var kitSelection: Binding<Int?> {
         Binding(
-            get: { editor.selectedKit },
-            set: { if let value = $0 { editor.selectedKit = value } }
+            get: { selected },
+            set: { if let value = $0 { onSelect(value) } }
         )
     }
 
-    private func hasChanges(in kit: Int) -> Bool {
-        editor.changes.contains { $0.scope != .global && $0.kit == kit }
+    /// Domknięcie `onSelect` celowo poza porównaniem — SwiftUI tworzy je od
+    /// nowa przy każdej przebudowie rodzica, więc porównywanie go (gdyby to
+    /// było w ogóle możliwe) zawsze dawałoby „różne" i cały zabieg byłby
+    /// bez sensu. Liczy się to, co widać na ekranie.
+    static func == (lewa: KitListView, prawa: KitListView) -> Bool {
+        lewa.kitCount == prawa.kitCount
+            && lewa.selected == prawa.selected
+            && lewa.changedKits == prawa.changedKits
+            && lewa.names == prawa.names
     }
 }
 

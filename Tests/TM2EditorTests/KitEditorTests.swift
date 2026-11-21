@@ -246,4 +246,60 @@ final class KitEditorTests: XCTestCase {
         XCTAssertFalse(editor.hasUnsavedChanges)
         XCTAssertEqual(editor.changes.count, 1, "Historia zmian ma zostać.")
     }
+
+    // MARK: - Bufory dla listy kitów
+
+    /// Lista 99 kitów nie dekoduje już nazw wiersz po wierszu — bierze je
+    /// z bufora. Bufor musi mówić dokładnie to samo, co odczyt wprost;
+    /// inaczej optymalizacja zamienia się w cichy błąd wyświetlania.
+    func testBuforNazwZgadzaSieZOdczytemWprost() {
+        let editor = makeEditor()
+        XCTAssertEqual(editor.kitNames.count, max(editor.layout.kitCount, 1))
+        for kit in 1...editor.layout.kitCount {
+            XCTAssertEqual(editor.kitNames[kit - 1], editor.kitName(kit),
+                           "Bufor rozjechał się z odczytem dla kitu \(kit).")
+        }
+    }
+
+    /// Zmiana nazwy musi być widoczna w buforze od razu, bez ponownego
+    /// wczytywania pliku.
+    func testBuforNazwNadazaZaEdycjaINadCofnieciem() {
+        let editor = makeEditor()
+        guard let nameField = editor.layout.kitFields.first(where: { $0.id == "kit.name" }),
+              nameField.isMapped else {
+            XCTFail("Profil testowy ma mieć zmapowane kit.name.")
+            return
+        }
+        let przed = editor.kitNames[6]
+
+        editor.set(.text("NOWA"), for: nameField, kit: 7, trigger: 1)
+        XCTAssertEqual(editor.kitNames[6], editor.kitName(7))
+        XCTAssertNotEqual(editor.kitNames[6], przed,
+                          "Bufor pokazuje starą nazwę po edycji.")
+
+        editor.undo()
+        XCTAssertEqual(editor.kitNames[6], przed,
+                       "Bufor nie wrócił do stanu przed edycją.")
+    }
+
+    /// Kropka przy wierszu bierze się z gotowego zbioru, nie z liniowego
+    /// przeszukiwania historii w każdym z 99 wierszy.
+    func testZbiorZmienionychKitowNadazaZaHistoria() {
+        let editor = makeEditor()
+        XCTAssertTrue(editor.changedKits.isEmpty)
+
+        editor.set(.number(42), for: levelField(editor), kit: 5, trigger: 1)
+        XCTAssertEqual(editor.changedKits, [5])
+
+        editor.set(.number(43), for: levelField(editor), kit: 9, trigger: 1)
+        XCTAssertEqual(editor.changedKits, [5, 9])
+
+        editor.undo()
+        XCTAssertEqual(editor.changedKits, [5],
+                       "Cofnięcie ma zdjąć kropkę z kitu 9.")
+
+        editor.redo()
+        XCTAssertEqual(editor.changedKits, [5, 9],
+                       "Ponowienie ma kropkę przywrócić.")
+    }
 }

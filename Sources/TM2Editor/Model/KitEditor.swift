@@ -87,6 +87,49 @@ final class KitEditor: ObservableObject {
     init(file: BackupFile, log: EditorLog) {
         self.file = file
         self.log = log
+        odswiezNazwyKitow()
+    }
+
+    // MARK: - Pamięć podręczna dla listy kitów
+
+    /// Nazwy wszystkich kitów, policzone raz.
+    ///
+    /// Lista kitów ma 99 wierszy i na macOS jest pod spodem tabelą, więc każda
+    /// przebudowa widoku przeładowuje ją w całości. Dopóki każdy wiersz sam
+    /// dekodował swoją nazwę z pliku, przełączenie czegokolwiek w prawym panelu
+    /// kosztowało 99 odczytów UTF-16 plus tyle samo przeszukań listy pól.
+    /// Teraz nazwy liczą się raz — przy wczytaniu pliku i po każdej zmianie,
+    /// która mogła je ruszyć.
+    @Published private(set) var kitNames: [String?] = []
+
+    /// Numery kitów z niezapisanymi zmianami — do kropki przy wierszu.
+    /// Liczone raz, zamiast przeszukiwać całą historię zmian w każdym z 99
+    /// wierszy osobno.
+    @Published private(set) var changedKits: Set<Int> = []
+
+    private func odswiezNazwyKitow() {
+        let liczba = max(layout.kitCount, 1)
+        guard let field = layout.kitFields.first(where: { $0.id == "kit.name" }),
+              field.isMapped else {
+            kitNames = Array(repeating: nil, count: liczba)
+            return
+        }
+        kitNames = (1...liczba).map { kit in
+            guard let value = file.value(of: field, kit: kit, trigger: 1),
+                  let text = value.textValue,
+                  !text.isEmpty else { return nil }
+            return text
+        }
+    }
+
+    private func odswiezZnacznikiZmian() {
+        changedKits = Set(changes.compactMap { $0.scope == .global ? nil : $0.kit })
+    }
+
+    /// Wołane po każdej operacji ruszającej bajty albo historię zmian.
+    private func odswiezPamiecPodreczna() {
+        odswiezNazwyKitow()
+        odswiezZnacznikiZmian()
     }
 
     // MARK: - Stan
@@ -201,6 +244,7 @@ final class KitEditor: ObservableObject {
         )
         changes.append(change)
         redoStack.removeAll()   // nowa zmiana zamyka gałąź ponowień
+        odswiezPamiecPodreczna()
         log.append(.edit, change.summary)
         return true
     }
@@ -213,6 +257,7 @@ final class KitEditor: ObservableObject {
             try file.setSlice(change.oldRaw, at: change.offset)
             redoStack.append(change)
             lastError = nil
+            odswiezPamiecPodreczna()
             log.append(.undo, "Cofnięto: \(change.summary)")
         } catch {
             // Ta gałąź jest w praktyce nieosiągalna: `oldRaw` zostało odczytane
@@ -236,6 +281,7 @@ final class KitEditor: ObservableObject {
             try file.setSlice(change.newRaw, at: change.offset)
             changes.append(change)
             lastError = nil
+            odswiezPamiecPodreczna()
             log.append(.edit, "Ponowiono: \(change.summary)")
         } catch {
             // Ta sama zasada co przy cofaniu — nie zapętlamy się.

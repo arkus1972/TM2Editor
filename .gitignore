@@ -7,3 +7,4 @@ DerivedData/
 .DS_Store
 /tm2-seria/
 *.img
+__pycache__/

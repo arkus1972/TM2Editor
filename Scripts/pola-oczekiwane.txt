@@ -1,0 +1,30 @@
+<przypisanie> layout.currentKitPointerOffset
+<przypisanie> layout.kitBlockOrigin
+<przypisanie> layout.kitStride
+<przypisanie> layout.triggerBlockOrigin
+<przypisanie> layout.triggerStride
+file.backupName
+kit.name
+kit.tempo
+kit.volume
+sys.masterVolume
+sys.midiChannel
+sys.programChangeRx
+trig.decay
+trig.dynamics
+trig.effectSend
+trig.instrument
+trig.level
+trig.loop
+trig.maskTime
+trig.monoPoly
+trig.muteGroup
+trig.note
+trig.offset
+trig.pan
+trig.pitch
+trig.retrigCancel
+trig.sensitivity
+trig.threshold
+trig.type
+trigset.\(numer + 1).\(nazwaPola)

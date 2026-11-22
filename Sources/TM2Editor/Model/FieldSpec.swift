@@ -135,6 +135,11 @@ enum FieldDisplay: Codable, Equatable {
     /// Panorama: ujemne jako `L…`, dodatnie jako `R…`, zero jako `CENTER`.
     case panLeftRight
 
+    /// Wartość ujemna to „wyłączone". Moduł tak zapisuje `Note# = OFF`:
+    /// −1 zamiast liczby nuty. Bez tego edytor pokazywałby „−1", a przy
+    /// odczycie jednobajtowym nawet „255".
+    case offWhenNegative
+
     /// Wartość przeskalowana w dół, z jednostką: 3000 przy dzielniku 10
     /// i jednym miejscu po przecinku daje `300.0 ms`.
     case scaled(divisor: Int, fractionDigits: Int, unit: String)
@@ -147,6 +152,9 @@ enum FieldDisplay: Codable, Equatable {
         case .panLeftRight:
             if value == 0 { return "CENTER" }
             return value < 0 ? "L\(-value)" : "R\(value)"
+
+        case .offWhenNegative:
+            return value < 0 ? "OFF" : String(value)
 
         case .scaled(let divisor, let fractionDigits, let unit):
             // Dzielnik 0 byłby błędem w opisie układu, ale widok nie jest od

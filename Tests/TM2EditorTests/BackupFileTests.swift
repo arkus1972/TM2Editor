@@ -554,6 +554,55 @@ final class BackupFileTests: XCTestCase {
         XCTAssertThrowsError(try plik.setValue(.text("ZaDlugaNazwa"), for: pole))
     }
 
+    /// Seria max2/min2 (wszystko na maksimum, potem na minimum, przy stałym
+    /// typie pada) domknęła trzy rzeczy naraz.
+    func testMeasuredSoundSlotExtremes() {
+        let layout = BackupLayout.mapped2026_09_02
+        func pole(_ id: String) -> FieldSpec? {
+            layout.triggerFields.first { $0.id == id }
+        }
+
+        // Note# da się WYŁĄCZYĆ, a wyłączone to −1, nie zero. Przy poprzednim
+        // opisie (liczba bez znaku 0…127) wyłączona nuta pokazywałaby się
+        // jako 255.
+        XCTAssertEqual(pole("trig.note")?.encoding, .signed16LE(min: -1, max: 127))
+        XCTAssertEqual(pole("trig.note")?.display, .offWhenNegative)
+        XCTAssertEqual(FieldDisplay.offWhenNegative.text(for: -1), "OFF")
+        XCTAssertEqual(FieldDisplay.offWhenNegative.text(for: 64), "64")
+
+        // Mono/Poly to ostatnie pole z listy parametrów instrumentu,
+        // które nie miało adresu.
+        XCTAssertEqual(pole("trig.monoPoly")?.offset, 0x12)
+        XCTAssertEqual(pole("trig.monoPoly")?.encoding,
+                       .enumeration(values: ["POLY", "MONO"]))
+
+        // Mute Group wyłączona to zero — zmierzone, nie przyjęte.
+        XCTAssertEqual(pole("trig.muteGroup")?.encoding.numericRange?.lowerBound, 0)
+    }
+
+    /// Typ efektu kitu jest ZNANY (+0x18 bloku kitu, THRU = 0, REVERB = 19),
+    /// ale celowo nie wystawiony do edycji: przy THRU cała reszta strefy
+    /// zeruje się co do bajtu, czyli znaczenie pól zależy od typu. Ten test
+    /// pilnuje, żeby nie trafił tam przez nieuwagę.
+    func testKitEffectTypeStaysOutOfEditing() {
+        let layout = BackupLayout.mapped2026_09_02
+        XCTAssertNil(layout.kitFields.first { $0.id == "kit.effect.type" })
+        XCTAssertNil(layout.kitFields.first { $0.id.hasPrefix("kit.effect.") })
+    }
+
+    /// Pilnuje tego, co raz już zginęło po cichu: pole nazwy backupu
+    /// i offset wskaźnika bieżącego kitu. Skrypt przepisujący sąsiedni
+    /// komentarz wyciął oba, nawiasy się zgadzały i nikt tego nie zauważył
+    /// aż do następnego pomiaru.
+    func testCriticalHeaderFieldsSurviveRefactors() {
+        let layout = BackupLayout.mapped2026_09_02
+        XCTAssertEqual(layout.currentKitPointerOffset, 0x36,
+                       "Bez tego edytor znów stanie na kicie 1 zamiast na tym"
+                        + " wybranym w module.")
+        XCTAssertNotNil(layout.globalFields.first { $0.id == "file.backupName" },
+                        "Nazwa backupu musi zostać polem do edycji.")
+    }
+
     /// `unmappedTM2` ma zostać nietknięty — zależą od niego pozostałe testy
     /// i tryb pracy „jeszcze nic nie wiem o formacie".
     func testUnmappedLayoutStaysUnmapped() {

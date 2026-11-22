@@ -427,6 +427,55 @@ extension BackupLayout {
         // Edytor pliku nie zna tablicy wartości domyślnych dla każdego typu,
         // więc zapisanie samego `Type` zostawiłoby komplet parametrów od
         // poprzedniego pada.
+        // Nazwa backupu — ta, którą moduł pokazuje na liście przy BACKUP LOAD.
+        //
+        // Wyszła z oglądania nagłówka, nie z pomiaru różnicowego. Po magicznym
+        // „TM-2" stoi znacznik „BK", a od 0x0A idzie osiem znaków ASCII
+        // dopełnionych spacjami. Potwierdzenie przyszło z dwóch stron: bajt
+        // 0x0A był jednym z dwóch nierozpoznanych w całym pliku (0x42 „B"
+        // w jednym backupie, 0x43 „C" w innym — jedno naciśnięcie [+] przy
+        // zmianie nazwy), a Arek potwierdził, że nazwę backupu zmieniał.
+        //
+        // Dopełnienie spacją zgadza się z tym, jak moduł trzyma krótkie nazwy
+        // kitów (sprawdzone: „Cowbells   " ma 0x20 na końcu, nie zera), więc
+        // nasz zapis pól ASCII robi dokładnie to samo co sprzęt.
+        //
+        // DŁUGOŚĆ 8 JEST HIPOTEZĄ. Po ósmym znaku stoją dwa bajty 0x20,
+        // a potem zera — czyli pole może być dłuższe, a te spacje to już
+        // dopełnienie czegoś innego. Dlatego trzymamy ostrożniejszą wartość:
+        // za krótkie pole odmówi dłuższej nazwy (błąd widoczny, odwracalny),
+        // za długie wpisałoby znaki w sąsiednie, nieznane bajty nagłówka.
+        layout.globalFields.append(
+            FieldSpec(
+                id: "file.backupName",
+                label: "Backup Name",
+                scope: .global,
+                group: .system,
+                offset: 0x0A,
+                encoding: .ascii(length: 8),
+                note: "Nazwa, pod którą moduł pokazuje ten backup na liście"
+                    + " BACKUP LOAD. Osiem znaków ASCII, dopełnianych spacjami."
+                    + " Długość przyjęta ostrożnie — patrz komentarz w kodzie."
+            )
+        )
+
+        // Wskaźnik bieżącego kitu. Zmierzony 2026-09-04: w teście zrobionym
+        // na kicie 40 ten bajt pokazał 0x27, czyli 39 — numer kitu liczony
+        // od zera. Wcześniejsze próbki (0 i 1) nie pozwalały tego odróżnić
+        // od flagi albo bitmapy.
+        layout.currentKitPointerOffset = 0x36
+
+        // Typ efektu kitu siedzi pod +0x18 bloku kitu. Zmierzone serią
+        // max2/min2: REVERB to 19, THRU to 0, a przy THRU cała reszta strefy
+        // efektu zeruje się co do bajtu. Czyli parametry efektu nie są
+        // stałymi polami — ich znaczenie zależy od typu, dokładnie tak jak
+        // przy typie pada.
+        //
+        // Dlatego tego pola tu NIE MA. Zapisanie samego typu zostawiłoby
+        // w pliku komplet parametrów poprzedniego efektu, a edytor nie zna
+        // tablic wartości domyślnych. Adres jest w `pola.json` i widać go
+        // w inspektorze heks.
+
         let trigUstawieniaOd = 0x40
         let trigUstawieniaKrok = 15
         let nazwyTrigerow = ["TRIG IN 1 head", "TRIG IN 1 rim",
@@ -728,13 +777,19 @@ extension BackupLayout {
                 scope: .trigger,
                 group: .sound,
                 offset: 12,                 // +0x0C
-                encoding: .unsigned(min: 0, max: 127),
+                encoding: .signed16LE(min: -1, max: 127),
                 note: "Numer nuty MIDI wysyłanej przy uderzeniu. Górna granica"
                     + " ZMIERZONA: 127 na wyświetlaczu to 127 w pliku."
                     + " Hipoteza postawiona wcześniej z samych wartości"
                     + " fabrycznych — kit 1 ma w czterech slotach 36, 35, 38"
                     + " i 40, czyli standardowe numery nut perkusyjnych"
                     + " w kolejności padów — i pomiar ją potwierdził."
+                    + " KOREKTA z serii max2/min2: `Note# = OFF` to w pliku"
+                    + " −1 (0xFFFF), a nie zero. Pole jest więc dwubajtowe"
+                    + " ze znakiem, a nie liczbą bez znaku 0…127 —"
+                    + " przy poprzednim opisie wyłączona nuta pokazywałaby"
+                    + " się jako 255.",
+                display: .offWhenNegative
             )
         )
 
@@ -755,6 +810,26 @@ extension BackupLayout {
                     + " Wyjaśnia też starą zagadkę: wartość 1 pod tym"
                     + " offsetem w archiwalnym `b1.bin` to po prostu LOUD 1,"
                     + " a nie ślad nieznanego parametru."
+            )
+        )
+
+        layout.triggerFields.append(
+            FieldSpec(
+                id: "trig.monoPoly",
+                label: "Mono / Poly",
+                scope: .trigger,
+                group: .sound,
+                offset: 18,                 // +0x12
+                encoding: .enumeration(values: ["POLY", "MONO"]),
+                note: "Zmierzone serią max2/min2: bajt poszedł z 1 na 0 przy"
+                    + " zejściu wszystkich parametrów brzmienia na minimum."
+                    + " To jedyne pole z listy parametrów instrumentu, które"
+                    + " zostało jeszcze bez adresu, a POLY jest pierwszą"
+                    + " pozycją listy, więc 0 = POLY. UWAGA: notatki Arka"
+                    + " podają MONO w obu plikach serii — albo to przeoczenie"
+                    + " przy spisywaniu, albo moduł sam przestawił ten"
+                    + " parametr. Do potwierdzenia jednym spojrzeniem"
+                    + " na wyświetlacz."
             )
         )
 

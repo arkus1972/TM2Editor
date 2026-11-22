@@ -26,7 +26,14 @@
       "offset": 22,
       "dlugosc": 44,
       "kodowanie": "pola_uint16le",
-      "opis": "STREFA EFEKTU KITU (+0x16..+0x41, 44 B, pola 16-bitowe LE). Potwierdzone pomiarem kit40-inst.bin: Kit Effect = Reverb z parametrami RevType PLATE, RevTime 99, PreDly 100, LoCut 800Hz, HiCut Flat, Dry-Wet 0:100. Przyporzadkowanie z tego pomiaru: +0x1A = 4 (RevType PLATE?), +0x1C = 99 (RevTime, 1:1), +0x1E = 100 (PreDly, 1:1), +0x20 = 10 (LoCut 800Hz, indeks tablicy czestotliwosci), +0x22 = 9 (HiCut Flat, ostatnia pozycja), +0x26 = 100 (Dry-Wet). Nietkniete: +0x16 = 1, +0x18 = 19, +0x24 = 10, +0x28 = +0x2A = 100. NIE WYSTAWIONE DO EDYCJI: znaczenie kazdego pola zalezy od typu efektu (12 typow w instrukcji), a bajt z typem nie jest jeszcze zidentyfikowany (+0x18 = 19 nie miesci sie w liscie 12 typow)."
+      "opis": "STREFA EFEKTU KITU (+0x16..+0x41, 44 B, pola 16-bitowe LE). Typ efektu pod +0x18. Zmierzone max2/min2 (REVERB kontra THRU): przy THRU zeruja sie pola +0x18, +0x1A, +0x1C, +0x1E, +0x20, +0x22, +0x24, +0x26, +0x28, +0x2A -- dziesiec pol, czyli wiecej niz szesc parametrow widocznych na wyswietlaczu. +0x16 = 1 w obu plikach, od +0x2C w gore same zera. Przyporzadkowanie z pomiaru REVERB: +0x1A = 4 (RevType PLATE), +0x1C = 99 (RevTime), +0x1E = 100 (PreDly), +0x20 = 10 (LoCut 800Hz), +0x22 = 9 (HiCut Flat), +0x26 = 100 (Dry-Wet). NIE DO EDYCJI: znaczenie pol zalezy od typu efektu."
+    },
+    {
+      "nazwa": "kit.effect.type",
+      "offset": 24,
+      "dlugosc": 2,
+      "kodowanie": "uint16le_lista",
+      "opis": "TYP EFEKTU KITU, pod +0x18 bloku kitu. Zmierzone seria max2/min2: THRU = 0, REVERB = 19. Instrukcja wymienia 12 typow, wiec firmware ma ich wiecej. NIE DO EDYCJI: przy THRU cala reszta strefy efektu zeruje sie co do bajtu, czyli znaczenie pol zalezy od typu -- zapisanie samego typu zostawiloby parametry poprzedniego efektu."
     }
   ],
   "polaTrigera": [
@@ -42,7 +49,7 @@
       "offset": 4,
       "dlugosc": 1,
       "kodowanie": "uint8_wprost_0_100",
-      "opis": "Poziom pada. 0 = minimum, 100 = maksimum, wprost."
+      "opis": "Poziom pada. 0 = minimum, 100 = maksimum, wprost. Dolna granica POTWIERDZONA seria max2/min2: 0."
     },
     {
       "nazwa": "trig.pitch",
@@ -76,12 +83,12 @@
       "nazwa": "trig.note",
       "offset": 12,
       "dlugosc": 2,
-      "kodowanie": "uint16le",
+      "kodowanie": "int16le_ze_znakiem",
       "zakres": [
-        0,
+        -1,
         127
       ],
-      "opis": "Note#, numer nuty MIDI. POTWIERDZONE pomiarem kit40-inst.bin: wyswietlacz 127 = plik 127. Wartosci fabryczne kitu 1 (36/35/38/40) to standardowe numery nut perkusyjnych w kolejnosci padow."
+      "opis": "Note#, numer nuty MIDI. Zmierzone: 127 = 127. KOREKTA z serii max2/min2: 'Note# = OFF' to w pliku -1 (0xFFFF), a nie zero -- pole jest dwubajtowe ZE ZNAKIEM."
     },
     {
       "nazwa": "trig.mute_group",
@@ -92,7 +99,7 @@
         0,
         8
       ],
-      "opis": "MuteGroup. Zmierzone: GRP2 = 2, brak grupy = 0, skala 1:1. GORNA GRANICA NIEZMIERZONA, przyjete 8. Hipoteza, ze grupa siedzi pod +0x16 (0xFFFF = -1 jako OFF), okazala sie nietrafiona."
+      "opis": "MuteGroup. Zmierzone: GRP2 = 2, brak grupy = 0, skala 1:1. GORNA GRANICA NIEZMIERZONA, przyjete 8. Hipoteza, ze grupa siedzi pod +0x16 (0xFFFF = -1 jako OFF), okazala sie nietrafiona. Zmierzone max2/min2: OFF = 0."
     },
     {
       "nazwa": "trig.dynamics",
@@ -107,6 +114,13 @@
       "dlugosc": 2,
       "kodowanie": "uint16le_bool",
       "opis": "EffectSend: czy pad idzie przez efekt kitu. Zmierzone: OFF zmienilo ten bajt z 1 na 0. Sasiedni +0x12 zostal na 1 -- tam najpewniej Mono/Poly, ale to wniosek z wykluczenia, nie pomiar."
+    },
+    {
+      "nazwa": "trig.mono_poly",
+      "offset": 18,
+      "dlugosc": 2,
+      "kodowanie": "uint16le_lista",
+      "opis": "Mono/Poly. 0 = POLY, 1 = MONO. Zmierzone seria max2/min2: bajt poszedl z 1 na 0 przy zejsciu wszystkiego na minimum. UWAGA: notatki podaja MONO w obu plikach -- do potwierdzenia."
     }
   ],
   "polaGlobalne": [
@@ -136,7 +150,11 @@
       "offset": 64,
       "dlugosc": 1,
       "kodowanie": "uint8",
-      "opis": "TRIG IN 1 head. Input: HEAD&RIM albo PADx2. Nietkniete we wszystkich testach."
+      "opis": "TRIG IN 1 head. Input: 0 = HEAD&RIM, 1 = PADx2. Zmierzone posrednio seria max2/min2: po przestawieniu wejscia na PADx2 bajt wskoczyl z 0 na 1, a na wyswietlaczu Rim Gain, H/R Adjust i Noise Cancel pokazaly '--' -- czyli przy tym trybie te parametry nie istnieja.",
+      "zakres": [
+        0,
+        1
+      ]
     },
     {
       "nazwa": "trigset.1.type",
@@ -252,7 +270,11 @@
       "offset": 79,
       "dlugosc": 1,
       "kodowanie": "uint8",
-      "opis": "TRIG IN 1 rim. Input: HEAD&RIM albo PADx2. Nietkniete we wszystkich testach."
+      "opis": "TRIG IN 1 rim. Input: 0 = HEAD&RIM, 1 = PADx2. Zmierzone posrednio seria max2/min2: po przestawieniu wejscia na PADx2 bajt wskoczyl z 0 na 1, a na wyswietlaczu Rim Gain, H/R Adjust i Noise Cancel pokazaly '--' -- czyli przy tym trybie te parametry nie istnieja.",
+      "zakres": [
+        0,
+        1
+      ]
     },
     {
       "nazwa": "trigset.2.type",
@@ -368,7 +390,11 @@
       "offset": 94,
       "dlugosc": 1,
       "kodowanie": "uint8",
-      "opis": "TRIG IN 2 head. Input: HEAD&RIM albo PADx2. Nietkniete we wszystkich testach."
+      "opis": "TRIG IN 2 head. Input: 0 = HEAD&RIM, 1 = PADx2. Zmierzone posrednio seria max2/min2: po przestawieniu wejscia na PADx2 bajt wskoczyl z 0 na 1, a na wyswietlaczu Rim Gain, H/R Adjust i Noise Cancel pokazaly '--' -- czyli przy tym trybie te parametry nie istnieja.",
+      "zakres": [
+        0,
+        1
+      ]
     },
     {
       "nazwa": "trigset.3.type",
@@ -484,7 +510,11 @@
       "offset": 109,
       "dlugosc": 1,
       "kodowanie": "uint8",
-      "opis": "TRIG IN 2 rim. Input: HEAD&RIM albo PADx2. Nietkniete we wszystkich testach."
+      "opis": "TRIG IN 2 rim. Input: 0 = HEAD&RIM, 1 = PADx2. Zmierzone posrednio seria max2/min2: po przestawieniu wejscia na PADx2 bajt wskoczyl z 0 na 1, a na wyswietlaczu Rim Gain, H/R Adjust i Noise Cancel pokazaly '--' -- czyli przy tym trybie te parametry nie istnieja.",
+      "zakres": [
+        0,
+        1
+      ]
     },
     {
       "nazwa": "trigset.4.type",
@@ -597,14 +627,14 @@
     }
   ],
   "otwartePytania": [
-    "Ktory z bajtow +0x09 / +0x0A rekordu wejscia to Rim Gain, a ktory H/R Adjust. Rozstrzygnie backup ze zmiana TYLKO Rim Gain (np. na 2.0).",
+    "Ktory z bajtow +0x09 / +0x0A rekordu wejscia to Rim Gain, a ktory H/R Adjust. UWAGA: przy Input = PADx2 oba pokazuja '--' i sa niedostepne, wiec pomiar wymaga przestawienia Input na HEAD&RIM.",
     "Czym sa bajty +0x05 i +0x07 rekordu wejscia -- oba zmieniaja sie wylacznie razem z Type.",
     "Bajt +0x0B rekordu wejscia: w bazie 2, we wszystkich testach 0.",
     "Nazwy typow pada (Type 1..31) i tablica wartosci domyslnych narzucanych przez kazdy typ.",
     "Nazwy dwoch brakujacych krzywych (Curve 0..6; wiemy, ze 6 = LOUD2).",
-    "Ktory bajt strefy efektu trzyma TYP efektu. Kandydat +0x18 = 19, ale instrukcja wymienia 12 typow.",
-    "Slot brzmienia: +0x12 (najpewniej Mono/Poly, z wykluczenia), +0x02 (wszedzie 1), +0x16 (wszedzie 0xFFFF), +0x18, +0x1C..+0x28.",
-    "Naglowek pliku: bajt 0x2C -- OSTATNI nierozpoznany w pliku. Mial 4 w bazie i 3 w pozniejszych plikach; hipoteza 'numer miejsca zapisu' upadla, bo wszystkie backupy na karcie to BKUP-001.",
+    "Pelna lista typow efektu kitu (THRU = 0, REVERB = 19) i ktore pola strefy nalezaza do ktorego typu.",
+    "Slot brzmienia: +0x02 (wszedzie 1), +0x16 (wszedzie 0xFFFF, nie drgnelo nawet przy minimach), +0x18, +0x1C..+0x28.",
+    "Naglowek pliku: bajt 0x2C -- OSTATNI nierozpoznany w pliku.",
     "Strefa ~101 KB zer po bloku kitow.",
     "W pliku jest 100 nazw kitow, nie 99 -- dlaczego jedna wiecej?"
   ]

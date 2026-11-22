@@ -61,6 +61,11 @@ jobs:
       - name: Testy jednostkowe
         run: swift test
 
+      - name: Strażnik listy pól układu
+        # Kontrola nawiasów nie wystarczy: skrypt przepisujący fragment pliku
+        # może wyciąć działające pole, zostawiając poprawną składnię.
+        run: python3 -I Scripts/sprawdz-pola.py
+
       - name: Kompilacja (release) i złożenie .app
         run: |
           chmod +x Scripts/zbuduj-app.sh

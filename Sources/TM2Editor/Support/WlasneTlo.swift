@@ -100,44 +100,34 @@ final class WlasneTlo: ObservableObject {
     }
 }
 
-/// Tło edytora kitu: obrazek przyciszony tak, żeby nie przeszkadzał w czytaniu.
-/// Sekcje z parametrami mają własne, nieprzezroczyste tło, więc obrazek widać
-/// tylko w marginesach i odstępach między nimi.
-struct TloEdytora: View {
+/// Obrazek pod CAŁYM oknem — ta sama zasada na każdym ekranie.
+///
+/// Historia tej decyzji: pierwsza wersja kładła obrazek tylko pod panelem
+/// parametrów, z założeniem, że będzie go widać „w marginesach". Wystawał
+/// strzępami w szczelinach między sekcjami i wyglądał jak błąd wyświetlania.
+/// Druga wersja zrobiła z niego miniaturę obok wyświetlacza LCD. Arek: „albo
+/// wszędzie, albo nigdzie". Słusznie — tło to tło.
+///
+/// Teraz obrazek wypełnia całe okno, a panele z parametrami i lista kitów są
+/// półprzezroczyste (matowe szkło), więc widać go równo pod wszystkim.
+/// Bez ustawionego obrazka nic tu się nie rysuje i program wygląda jak dawniej.
+struct TloOkna: View {
 
     @ObservedObject var tlo: WlasneTlo
 
     var body: some View {
-        if let obraz = tlo.obraz {
-            Image(nsImage: obraz)
-                .resizable()
-                .scaledToFit()
-                .frame(maxWidth: 460)
-                .opacity(0.16)
-                .padding(24)
-                .allowsHitTesting(false)
-                .accessibilityHidden(true)
+        GeometryReader { geometria in
+            if let obraz = tlo.obraz {
+                Image(nsImage: obraz)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: geometria.size.width, height: geometria.size.height)
+                    .clipped()
+                    .opacity(0.22)
+            }
         }
-    }
-}
-
-/// Obrazek na ekranie powitalnym — w pełnej krasie, bo tam nie ma czego
-/// przysłaniać. Bez ustawionego tła pokazuje dotychczasową ikonę.
-struct ObrazPowitalny: View {
-
-    @ObservedObject var tlo: WlasneTlo
-
-    var body: some View {
-        if let obraz = tlo.obraz {
-            Image(nsImage: obraz)
-                .resizable()
-                .scaledToFit()
-                .frame(maxWidth: 360, maxHeight: 300)
-                .shadow(color: .black.opacity(0.25), radius: 12, y: 6)
-        } else {
-            Image(systemName: "externaldrive.connected.to.line.below")
-                .font(.system(size: 56, weight: .light))
-                .foregroundStyle(.secondary)
-        }
+        .ignoresSafeArea()
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
 }

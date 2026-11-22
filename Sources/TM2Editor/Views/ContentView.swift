@@ -13,6 +13,8 @@ struct ContentView: View {
                 WelcomeView()
             }
         }
+        // Własny obrazek pod całym oknem — na każdym ekranie tak samo.
+        .background { TloOkna(tlo: model.tlo) }
         .alert("Something went wrong",
                isPresented: Binding(
                    get: { model.errorMessage != nil },
@@ -50,8 +52,7 @@ struct ContentView: View {
                 if let editor = model.editor {
                     switch model.selectedTab {
                     case .kits:
-                        KitBrowserView(editor: editor, selection: model.selection,
-                                       tlo: model.tlo)
+                        KitBrowserView(editor: editor, selection: model.selection)
                     case .hex:
                         HexInspectorView(editor: editor, selection: model.selection)
                     case .layout:
@@ -76,7 +77,9 @@ struct WelcomeView: View {
         VStack(spacing: 20) {
             Spacer()
 
-            ObrazPowitalny(tlo: model.tlo)
+            Image(systemName: "externaldrive.connected.to.line.below")
+                .font(.system(size: 56, weight: .light))
+                .foregroundStyle(.secondary)
 
             Text("TM-2 Editor")
                 .font(.largeTitle.weight(.semibold))

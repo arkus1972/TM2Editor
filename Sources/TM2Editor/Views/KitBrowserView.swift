@@ -13,10 +13,6 @@ struct KitBrowserView: View {
     /// wybranego triggera. Obserwują je dopiero te dzieci, które muszą.
     let selection: EditorSelection
 
-    /// Własne tło — przekazywane dalej, nie obserwowane tutaj, z tego samego
-    /// powodu co zaznaczenie.
-    let tlo: WlasneTlo
-
     var body: some View {
         HSplitView {
             KitListPane(
@@ -27,7 +23,7 @@ struct KitBrowserView: View {
             )
             .frame(minWidth: 240, idealWidth: 290, maxWidth: 380)
 
-            KitDetailView(editor: editor, selection: selection, tlo: tlo)
+            KitDetailView(editor: editor, selection: selection)
                 .frame(minWidth: 620)
         }
     }
@@ -127,6 +123,11 @@ struct KitListView: View, Equatable {
                     .id(kit)
                 }
                 .listStyle(.inset)
+                // Lista na macOS rysuje własne, pełne tło — przez nie obrazek
+                // byłby widoczny wszędzie oprócz listy. Chowamy je i dajemy
+                // to samo matowe szkło co sekcjom z parametrami.
+                .scrollContentBackground(.hidden)
+                .background(.regularMaterial)
                 .onAppear {
                     // Tylko przy pierwszym pokazaniu listy. Później przewijaniem
                     // rządzi użytkownik i nie ma nic gorszego niż widok, który
@@ -170,17 +171,31 @@ struct KitDetailView: View {
 
     @ObservedObject var editor: KitEditor
     @ObservedObject var selection: EditorSelection
-    let tlo: WlasneTlo
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
+        VStack(spacing: 0) {
+            // Pasek przypięty NAD przewijaną częścią. Pierwsza wersja miała
+            // wyświetlacz w środku ScrollView i po przewinięciu w dół znikał —
+            // a jego zadaniem jest właśnie zawsze pokazywać, na czym się pracuje.
+            WyswietlaczLCD(
+                kit: selection.kit,
+                nazwa: nazwaKitu,
+                strefa: triggerLabel(selection.trigger)
+            )
+            .padding(.horizontal, 20)
+            .padding(.top, 16)
+            .padding(.bottom, 14)
 
-                WyswietlaczLCD(
-                    kit: selection.kit,
-                    nazwa: nazwaKitu,
-                    strefa: triggerLabel(selection.trigger)
-                )
+            Divider()
+
+            ScrollView {
+                trescPanelu
+            }
+        }
+    }
+
+    private var trescPanelu: some View {
+            VStack(alignment: .leading, spacing: 20) {
 
                 if !editor.layout.canAddressKits {
                     NotMappedNotice()
@@ -258,10 +273,6 @@ struct KitDetailView: View {
             }
             .padding(20)
             .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .background(alignment: .bottomTrailing) {
-            TloEdytora(tlo: tlo)
-        }
     }
 
     /// Nazwa z gotowego bufora edytora — ta sama, którą pokazuje lista kitów.
@@ -393,8 +404,10 @@ struct FieldSection: View {
                             : field.id)
                 }
             }
-            .background(Color(nsColor: .controlBackgroundColor),
-                        in: RoundedRectangle(cornerRadius: 10))
+            // Matowe szkło zamiast pełnego tła: przy ustawionym obrazku widać
+            // go pod sekcją tak samo jak wszędzie indziej, a bez obrazka
+            // wygląda to praktycznie jak dawniej.
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10))
         }
     }
 

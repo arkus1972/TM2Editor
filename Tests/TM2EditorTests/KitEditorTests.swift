@@ -550,4 +550,32 @@ final class KitEditorTests: XCTestCase {
         // Pola spoza gniazda zawsze widoczne.
         XCTAssertTrue(e.czyModulPokazujePole(try pole(e, "trigset.1.sensitivity")))
     }
+
+    // MARK: - Efekt kitu
+
+    /// Zmiana efektu: typ i wszystkie 20 pól parametrów naraz, +0x16 nietknięte,
+    /// jedna pozycja na liście, jedno cofnięcie przywraca wszystko.
+    func testZmianaEfektuKituJakNaModule() throws {
+        var bytes = [UInt8](repeating: 0, count: 124_748)
+        let kit7 = 0x7C + 6 * 234
+        bytes[kit7 + 0x16] = 1
+        let reverb = try XCTUnwrap(TypyEfektow.typ(kod: 19))
+        bytes.replaceSubrange((kit7 + 0x18)..<(kit7 + 0x42), with: reverb.bajtyStrefy)
+        let editor = KitEditor(file: BackupFile(bytes: bytes, layout: .mapped2026_09_02),
+                               log: EditorLog())
+        XCTAssertEqual(editor.kitEffect(kit: 7)?.nazwa, "REVERB")
+        let przed = try XCTUnwrap(editor.file.slice(at: kit7 + 0x16, length: 44))
+
+        let delay = try XCTUnwrap(TypyEfektow.typ(kod: 1))
+        XCTAssertTrue(editor.setKitEffect(delay, kit: 7))
+        XCTAssertEqual(editor.kitEffect(kit: 7)?.nazwa, "DELAY")
+        XCTAssertEqual(editor.file.byte(at: kit7 + 0x16), 1, "+0x16 nie należy do efektu.")
+        XCTAssertEqual(editor.file.slice(at: kit7 + 0x18, length: 42), delay.bajtyStrefy)
+        XCTAssertEqual(editor.changes.count, 1)
+        // Sąsiedni kit nietknięty.
+        XCTAssertEqual(editor.kitEffect(kit: 8)?.nazwa, "THRU")
+
+        editor.undo()
+        XCTAssertEqual(editor.file.slice(at: kit7 + 0x16, length: 44), przed)
+    }
 }

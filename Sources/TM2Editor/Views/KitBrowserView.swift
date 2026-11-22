@@ -210,6 +210,19 @@ struct KitDetailView: View {
                     trigger: 1
                 )
 
+                // Efekt kitu — osobna sekcja, bo to nie zwykłe pole: zmiana
+                // przestawia wszystkie parametry efektu na domyślne.
+                if editor.obslugujeEfektKitu {
+                    FieldSection(
+                        title: "Effect",
+                        fields: [],
+                        editor: editor,
+                        kit: selection.kit,
+                        trigger: 1,
+                        wierszNaGorze: AnyView(WierszEfektuKitu(editor: editor, kit: selection.kit))
+                    )
+                }
+
                 // Wybór triggera
                 if !editor.layout.triggerFields.isEmpty {
                     VStack(alignment: .leading, spacing: 8) {

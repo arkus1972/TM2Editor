@@ -33,7 +33,7 @@
       "offset": 24,
       "dlugosc": 2,
       "kodowanie": "uint16le_lista",
-      "opis": "TYP EFEKTU KITU, pod +0x18 bloku kitu. Zmierzone seria max2/min2: THRU = 0, REVERB = 19. Instrukcja wymienia 12 typow, wiec firmware ma ich wiecej. NIE DO EDYCJI: przy THRU cala reszta strefy efektu zeruje sie co do bajtu, czyli znaczenie pol zalezy od typu -- zapisanie samego typu zostawiloby parametry poprzedniego efektu."
+      "opis": "TYP EFEKTU KITU, +0x18 bloku kitu, uint16LE. Kody zmierzone (efekty-1.bin, kity 70-80): THRU 0, DELAY 1, TAPE ECHO 3, CHORUS 4, FLANGER 5, PHASER 7, EQUALIZER 9, COMP 10, WAH 14, DIST 15, RINGMOD 16, REVERB 19 -- kody z dziurami. Zmiana efektu ustawia +0x18..+0x41 na typ i wartosci domyslne (TypyEfektow.swift), +0x16 nietkniete. EDYTOWALNY w programie od 2026-11-22. Parametry efektu: polozenie znane, znaczenie pol per typ -- do zmapowania."
     }
   ],
   "polaTrigera": [
@@ -635,12 +635,12 @@
     }
   ],
   "otwartePytania": [
+    "Parametry efektow kitu: dla kazdego z 11 efektow, ktore pole (+0x1A..+0x40) to ktory parametr i w jakiej skali. Wartosci domyslne juz znane.",
     "Drugi rekord kazdego gniazda (2 i 4) to drugi pad w trybie PADx2 -- potwierdzone seria typow (4 niezalezne typy). W trybie HEAD&RIM rekord nieuzywany.",
     "Czy modul zmienia cos w rekordzie wejscia sam. Dwa bajty zmienily sie bez wiedzy Arka (Sensitivity 17 -> 32 w trzy-drobiazgi.bin, H/R Adjust 20 -> 31 w poly.bin). Rozstrzygnie para pustych backupow bez dotykania czegokolwiek.",
     "Co oznaczaja bajty +0x00 i +0x0A w rekordach RIM (2 i 4) -- maja wartosci, ale nie byly mierzone.",
     "Czym sa bajty +0x05 i +0x07 rekordu wejscia -- oba zmieniaja sie wylacznie razem z Type.",
     "Nazwy dwoch brakujacych krzywych (Curve 0..6; wiemy, ze 6 = LOUD2).",
-    "Pelna lista typow efektu kitu (THRU = 0, REVERB = 19) i ktore pola strefy nalezaza do ktorego typu.",
     "Slot brzmienia: +0x02 (wszedzie 1), +0x16 (wszedzie 0xFFFF), +0x18, +0x1C..+0x28.",
     "Naglowek pliku: bajt 0x2C -- OSTATNI nierozpoznany w pliku.",
     "Strefa ~101 KB zer po bloku kitow.",

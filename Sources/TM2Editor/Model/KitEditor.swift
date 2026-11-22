@@ -359,6 +359,75 @@ final class KitEditor: ObservableObject {
         return rekord % 2 == 1 ? "TRIG IN \(gniazdo)" : "TRIG IN \(gniazdo) pad 2"
     }
 
+    // MARK: - Efekt kitu
+
+    /// Czy układ zna strefę efektu kitu — czyli czy to jest zmierzona geometria
+    /// (blok kitu 234 B). Bez tego zmiana efektu pisałaby na ślepo.
+    var obslugujeEfektKitu: Bool {
+        layout.canAddressKits && layout.kitStride == 234
+    }
+
+    /// Efekt kitu albo `nil`, gdy w pliku stoi kod spoza zmierzonej tablicy.
+    func kitEffect(kit: Int) -> TypEfektu? {
+        guard obslugujeEfektKitu,
+              let poczatek = layout.kitOrigin(kit: kit),
+              let bajty = file.slice(at: poczatek + TypyEfektow.poczatekWKicie, length: 2)
+        else { return nil }
+        return TypyEfektow.typ(kod: Int(bajty[0]) | (Int(bajty[1]) << 8))
+    }
+
+    /// Zmienia efekt kitu tak, jak robi to moduł: typ i wartości domyślne
+    /// wszystkich 20 pól parametrów naraz. Parametry poprzedniego efektu nie
+    /// mają znaczenia dla nowego — znaczenie pól zależy od typu — więc
+    /// zostawienie ich dałoby stan, którego moduł sam nigdy by nie ustawił.
+    ///
+    /// Jedna pozycja na liście zmian (42 bajty), jedno cofnięcie przywraca
+    /// efekt razem z jego parametrami.
+    @discardableResult
+    func setKitEffect(_ efekt: TypEfektu, kit: Int) -> Bool {
+        guard obslugujeEfektKitu, let poczatek = layout.kitOrigin(kit: kit) else {
+            lastError = "Kit effect cannot be edited with this layout."
+            return false
+        }
+        let start = poczatek + TypyEfektow.poczatekWKicie
+        guard let stare = file.slice(at: start, length: TypyEfektow.dlugosc) else {
+            lastError = "Kit effect points outside the file."
+            log.append(.warning, "Strefa efektu kitu \(kit) wypada poza plikiem")
+            return false
+        }
+        let nowe = efekt.bajtyStrefy
+        guard nowe != stare else { return true }
+
+        do {
+            try file.setSlice(nowe, at: start)
+        } catch {
+            lastError = error.localizedDescription
+            log.append(.error, "Zmiana efektu kitu nie powiodła się: \(error.localizedDescription)")
+            return false
+        }
+
+        let staryKod = Int(stare[0]) | (Int(stare[1]) << 8)
+        let poprzedni = TypyEfektow.typ(kod: staryKod)?.nazwa ?? "#\(staryKod)"
+        let change = EditChange(
+            fieldID: "kit.effect.type",
+            fieldLabel: "Kit Effect",
+            scope: .kit,
+            kit: kit,
+            trigger: 1,
+            oldValue: .text(poprzedni),
+            newValue: .text(efekt.nazwa),
+            timestamp: Date(),
+            offset: start,
+            oldRaw: stare,
+            newRaw: nowe
+        )
+        changes.append(change)
+        redoStack.removeAll()
+        odswiezPamiecPodreczna()
+        log.append(.edit, change.summary + " (z wartościami domyślnymi efektu)")
+        return true
+    }
+
     // MARK: - Cofanie i ponawianie
 
     func undo() {

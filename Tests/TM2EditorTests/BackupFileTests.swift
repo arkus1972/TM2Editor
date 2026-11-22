@@ -733,6 +733,33 @@ final class BackupFileTests: XCTestCase {
                        0x40 + 2 * 15 + 0x0B)
     }
 
+    // MARK: - Efekty kitu
+
+    /// Dwanaście efektów, kody z dziurami, każdy z kompletem 20 wartości
+    /// domyślnych. Kolejność tablicy = kolejność na module.
+    func testKitEffectTableIsComplete() {
+        let nazwy = TypyEfektow.wszystkie.map(\.nazwa)
+        XCTAssertEqual(nazwy, ["THRU", "DELAY", "TAPE ECHO", "CHORUS", "FLANGER", "PHASER",
+                               "EQUALIZER", "COMP", "WAH", "DIST", "RINGMOD", "REVERB"])
+        XCTAssertEqual(TypyEfektow.wszystkie.map(\.kod), [0, 1, 3, 4, 5, 7, 9, 10, 14, 15, 16, 19])
+        for efekt in TypyEfektow.wszystkie {
+            XCTAssertEqual(efekt.domyslne.count, 20, efekt.nazwa)
+            XCTAssertEqual(efekt.bajtyStrefy.count, TypyEfektow.dlugosc, efekt.nazwa)
+        }
+        // THRU nie ma parametrów — wszystko wyzerowane.
+        XCTAssertTrue(TypyEfektow.typ(kod: 0)?.domyslne.allSatisfy { $0 == 0 } ?? false)
+    }
+
+    /// REVERB z serii max2 (zmienione parametry) i z efekty-1 (domyślne) muszą
+    /// się zgadzać tam, gdzie Arek parametrów nie ruszał: +0x24, +0x28, +0x2A.
+    func testReverbDefaultsAgreeWithEarlierMeasurement() throws {
+        let reverb = try XCTUnwrap(TypyEfektow.typ(kod: 19))
+        // pola od +0x1A co 2 bajty: indeks 5 = +0x24, 7 = +0x28, 8 = +0x2A
+        XCTAssertEqual(reverb.domyslne[5], 10)
+        XCTAssertEqual(reverb.domyslne[7], 100)
+        XCTAssertEqual(reverb.domyslne[8], 100)
+    }
+
     /// `unmappedTM2` ma zostać nietknięty — zależą od niego pozostałe testy
     /// i tryb pracy „jeszcze nic nie wiem o formacie".
     func testUnmappedLayoutStaysUnmapped() {

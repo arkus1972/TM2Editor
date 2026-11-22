@@ -114,6 +114,13 @@
       "dlugosc": 2,
       "kodowanie": "uint16le_bool",
       "opis": "EffectSend: czy pad idzie przez efekt kitu. Zmierzone: OFF zmienilo ten bajt z 1 na 0. Sasiedni +0x12 zostal na 1 -- tam najpewniej Mono/Poly, ale to wniosek z wykluczenia, nie pomiar."
+    },
+    {
+      "nazwa": "trig.mono_poly",
+      "offset": 18,
+      "dlugosc": 2,
+      "kodowanie": "uint16le_lista",
+      "opis": "Mono/Poly: 0 = MONO, 1 = POLY. ZMIERZONE WPROST (poly.bin): ustawienie POLY zmienilo bajt 0 -> 1. Przy Loop = ON modul wymusza MONO i tak to pokazuje, nawet gdy w pliku stoi POLY -- to wyjasnia, czemu w serii max2/min2 wyswietlacz mowil MONO przy obu wartosciach."
     }
   ],
   "polaGlobalne": [
@@ -620,7 +627,6 @@
     }
   ],
   "otwartePytania": [
-    "Gdzie jest Mono/Poly. NIE pod +0x12: wyswietlacz pokazuje MONO zarowno przy 1, jak i przy 0 w tym bajcie (max2/min2), a fabryczny kit 1 ma tam 1 przy Loop OFF. Rozstrzygnie backup ze zmiana TYLKO Mono/Poly (przy Loop OFF, bo Loop ON wymusza MONO).",
     "Co siedzi pod +0x09 rekordu HEAD: H/R Adjust czy Noise Cancel. Rozstrzygnie backup ze zmiana TYLKO H/R Adjust (przy Input = HEAD&RIM). Gdzie jest drugi z nich -- nieznane.",
     "Co oznaczaja bajty +0x00 i +0x0A w rekordach RIM (2 i 4) -- maja wartosci, ale nie byly mierzone.",
     "Czym sa bajty +0x05 i +0x07 rekordu wejscia -- oba zmieniaja sie wylacznie razem z Type.",
@@ -628,7 +634,7 @@
     "Nazwy typow pada (Type 1..31) i tablica wartosci domyslnych narzucanych przez kazdy typ.",
     "Nazwy dwoch brakujacych krzywych (Curve 0..6; wiemy, ze 6 = LOUD2).",
     "Pelna lista typow efektu kitu (THRU = 0, REVERB = 19) i ktore pola strefy nalezaza do ktorego typu.",
-    "Slot brzmienia: +0x12 (1 -> 0 w serii max2/min2, NIE Mono/Poly -- nieznane), +0x02 (wszedzie 1), +0x16 (wszedzie 0xFFFF), +0x18, +0x1C..+0x28.",
+    "Slot brzmienia: +0x02 (wszedzie 1), +0x16 (wszedzie 0xFFFF), +0x18, +0x1C..+0x28.",
     "Naglowek pliku: bajt 0x2C -- OSTATNI nierozpoznany w pliku.",
     "Strefa ~101 KB zer po bloku kitow.",
     "W pliku jest 100 nazw kitow, nie 99 -- dlaczego jedna wiecej?"

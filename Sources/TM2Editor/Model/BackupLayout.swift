@@ -875,14 +875,35 @@ extension BackupLayout {
             )
         )
 
-        // Mono/Poly — CELOWO BEZ ADRESU. Przez chwilę było tu pole pod +0x12,
-        // wywnioskowane z wykluczenia: bajt zmienił się z 1 na 0 w serii
-        // max2/min2, a Mono/Poly było ostatnim parametrem instrumentu bez
-        // adresu. Obaliło to jedno spojrzenie na wyświetlacz: moduł pokazuje
-        // MONO zarówno przy 1, jak i przy 0. Do tego fabryczny kit 1 ma pod
-        // +0x12 jedynkę na wszystkich padach przy wyłączonym Loop.
-        // Czyli +0x12 to coś innego, a wniosek z wykluczenia był fałszywy —
-        // zakładał, że lista parametrów z instrukcji jest kompletna.
+        // Mono/Poly — historia w trzech aktach, warta zapamiętania.
+        //
+        // 1. Seria max2/min2: bajt +0x12 zmienił się 1 -> 0, a Mono/Poly było
+        //    ostatnim parametrem instrumentu bez adresu. Przypisałem z
+        //    wykluczenia: 0 = POLY, 1 = MONO.
+        // 2. Wyświetlacz pokazywał MONO w OBU stanach. Pole wycofane, bo
+        //    pokazywałoby nieprawdę.
+        // 3. Pomiar wprost (`poly.bin`): przestawienie TYLKO Mono/Poly na POLY
+        //    zmieniło +0x12 z 0 na 1. Czyli adres był dobry, polaryzacja zła:
+        //    0 = MONO, 1 = POLY.
+        //
+        // Sprzeczność z punktu 2 wyjaśnia Loop: w max2 był włączony, a Loop
+        // WYMUSZA MONO. Moduł pokazywał MONO, choć zapisane było POLY —
+        // wyświetlacz i plik mówiły co innego i oba mówiły prawdę.
+        // Fabryczny kit 1 ma tu 1 (POLY) na wszystkich padach.
+        layout.triggerFields.append(
+            FieldSpec(
+                id: "trig.monoPoly",
+                label: "Mono / Poly",
+                scope: .trigger,
+                group: .sound,
+                offset: 18,                 // +0x12
+                encoding: .enumeration(values: ["MONO", "POLY"]),
+                note: "Zmierzone wprost: ustawienie POLY zmieniło ten bajt"
+                    + " z 0 na 1. UWAGA: przy Loop = ON moduł wymusza MONO"
+                    + " i tak to pokazuje na wyświetlaczu, nawet jeśli w pliku"
+                    + " stoi POLY. Edytor pokazuje to, co jest zapisane."
+            )
+        )
 
         layout.triggerFields.append(
             FieldSpec(

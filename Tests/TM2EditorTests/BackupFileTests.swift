@@ -590,11 +590,12 @@ final class BackupFileTests: XCTestCase {
         XCTAssertEqual(FieldDisplay.offWhenNegative.text(for: -1), "OFF")
         XCTAssertEqual(FieldDisplay.offWhenNegative.text(for: 64), "64")
 
-        // Mono/Poly NIE jest pod +0x12, mimo że tak wynikało z wykluczenia:
-        // moduł pokazuje MONO zarówno przy 1, jak i przy 0 w tym bajcie.
-        // Dopóki nie zmierzymy go wprost, pole nie może istnieć — inaczej
-        // edytor pokazywałby POLY tam, gdzie moduł ma MONO.
-        XCTAssertNil(pole("trig.monoPoly"))
+        // Mono/Poly pod +0x12, zmierzone wprost (`poly.bin`): POLY to 1.
+        // Polaryzacja jest ODWROTNA niż przy pierwszym, wywnioskowanym
+        // przypisaniu — i dlatego tamto zostało wycofane.
+        XCTAssertEqual(pole("trig.monoPoly")?.offset, 0x12)
+        XCTAssertEqual(pole("trig.monoPoly")?.encoding,
+                       .enumeration(values: ["MONO", "POLY"]))
 
         // Mute Group wyłączona to zero — zmierzone, nie przyjęte.
         XCTAssertEqual(pole("trig.muteGroup")?.encoding.numericRange?.lowerBound, 0)

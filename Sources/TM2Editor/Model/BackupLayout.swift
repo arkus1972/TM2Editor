@@ -536,6 +536,68 @@ extension BackupLayout {
             }
         }
 
+        // Pola GNIAZDA, a nie pojedynczego triggera. Zapisane w rekordzie
+        // HEAD każdego gniazda (rekord 1 dla TRIG IN 1, rekord 3 dla TRIG IN 2).
+        //
+        // Zmierzone w dwóch krokach, każdy zmieniał dokładnie jedną rzecz
+        // i każdy dał dokładnie jeden bajt:
+        //   input-headrim.bin   Input PADx2 -> HEAD&RIM   +0x00: 1 -> 0
+        //   rimgain.bin         Rim Gain -> 2.0            +0x0A: 15 -> 20
+        //
+        // Zmiana Input nie przestawiła ŻADNEGO innego bajtu — w odróżnieniu od
+        // Type. Dlatego Input może być edytowalny bez obaw o zostawienie
+        // w pliku niespójnego kompletu parametrów.
+        //
+        // Rekordy RIM (2 i 4) mają pod tymi offsetami własne wartości, ale ich
+        // znaczenia nie zmierzyliśmy — więc nie wystawiamy ich do edycji.
+        // Po wpadce z Mono/Poly (wniosek z wykluczenia okazał się fałszywy)
+        // mapujemy tylko to, co zmierzone wprost.
+        //
+        // +0x09 to H/R Adjust ALBO Noise Cancel — oba pokazują "--" przy
+        // PADx2, więc kandydatów jest dwóch, a pomiar był jeden. Zostaje bez
+        // adresu.
+        let gniazda: [(rekord: Int, nazwa: String)] = [(0, "TRIG IN 1"), (2, "TRIG IN 2")]
+        for (rekord, nazwa) in gniazda {
+            let baza = trigUstawieniaOd + rekord * trigUstawieniaKrok
+            let numer = rekord / 2 + 1
+
+            layout.globalFields.append(
+                FieldSpec(
+                    id: "jack.\(numer).input",
+                    label: "Input — \(nazwa)",
+                    scope: .global,
+                    group: .triggerInput,
+                    offset: baza + 0x00,
+                    encoding: .enumeration(values: ["HEAD&RIM", "PADx2"]),
+                    note: "Tryb gniazda: kabel head/rim albo dwa osobne pady."
+                        + " Zmierzone wprost: 0 = HEAD&RIM, 1 = PADx2"
+                        + " (wyświetlacz potwierdził PADx2 przy wartości 1)."
+                        + " Zmiana nie przestawia innych parametrów. Przy PADx2"
+                        + " moduł pokazuje \"--\" przy Rim Gain, H/R Adjust"
+                        + " i Noise Cancel — te parametry wtedy nie działają."
+                )
+            )
+
+            layout.globalFields.append(
+                FieldSpec(
+                    id: "jack.\(numer).rimGain",
+                    label: "Rim Gain — \(nazwa)",
+                    scope: .global,
+                    group: .triggerInput,
+                    offset: baza + 0x0A,
+                    encoding: .unsigned(min: 0, max: 80),
+                    note: "Czułość obręczy. Wyświetlacz pokazuje DZIESIĄTĄ"
+                        + " część wartości surowej: raw 20 to 2.0, raw 80 to"
+                        + " 8.0. Zmierzone wprost (jeden parametr naraz) plus"
+                        + " maksimum z serii max/min. Działa tylko przy"
+                        + " Input = HEAD&RIM. KOREKTA: wcześniej to pole było"
+                        + " przypisane do +0x06 ze skalą ÷2 — tamto okazało"
+                        + " się Retrig Cancel.",
+                    display: .scaled(divisor: 10, fractionDigits: 1, unit: "")
+                )
+            )
+        }
+
         return layout
     }
 

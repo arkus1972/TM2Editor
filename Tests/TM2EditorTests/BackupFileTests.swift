@@ -407,23 +407,41 @@ final class BackupFileTests: XCTestCase {
         }
     }
 
-    /// Rim Gain i H/R Adjust zostają NIEZMAPOWANE i to jest decyzja, nie
-    /// zaniedbanie. Przy maksimum oba dawały w pliku 80 (Rim Gain 8.0 przy
-    /// dzielniku 10, H/R Adjust 80 wprost), więc z samych skrajności nie da
-    /// się ich rozróżnić — a zgadywanie przy tym rekordzie zdążyło się już
-    /// raz zemścić. Rozstrzygnie pomiar, w którym zmienia się tylko jeden.
-    func testRimGainAndHRAdjustStayUnmappedUntilToldApart() {
+    /// Pola gniazda zmierzone w dwóch krokach, każdy zmieniał dokładnie
+    /// jedną rzecz i każdy dał dokładnie jeden bajt:
+    ///   Input PADx2 -> HEAD&RIM   +0x00: 1 -> 0
+    ///   Rim Gain -> 2.0           +0x0A: 15 -> 20
+    func testJackFieldsMeasuredOneParameterAtATime() {
         let layout = BackupLayout.mapped2026_09_02
-        for numer in 1...4 {
-            XCTAssertNil(
-                layout.globalFields.first(where: { $0.id == "trigset.\(numer).rimGain" }),
-                "Rim Gain nie może być zmapowany, dopóki nie odróżnimy go"
-                    + " od H/R Adjust.")
-            XCTAssertNil(
-                layout.globalFields.first(where: { $0.id == "trigset.\(numer).hrAdjust" }),
-                "H/R Adjust nie może być zmapowany, dopóki nie odróżnimy go"
-                    + " od Rim Gain.")
+        func pole(_ id: String) -> FieldSpec? {
+            layout.globalFields.first { $0.id == id }
         }
+
+        // Pola gniazda leżą w rekordzie HEAD: 1 dla TRIG IN 1, 3 dla TRIG IN 2.
+        XCTAssertEqual(pole("jack.1.input")?.offset, 0x40)
+        XCTAssertEqual(pole("jack.2.input")?.offset, 0x40 + 2 * 15)
+        XCTAssertEqual(pole("jack.1.input")?.encoding,
+                       .enumeration(values: ["HEAD&RIM", "PADx2"]))
+
+        XCTAssertEqual(pole("jack.1.rimGain")?.offset, 0x40 + 0x0A)
+        XCTAssertEqual(pole("jack.2.rimGain")?.offset, 0x40 + 2 * 15 + 0x0A)
+        XCTAssertEqual(pole("jack.1.rimGain")?.encoding.numericRange, 0...80)
+        XCTAssertEqual(pole("jack.1.rimGain")?.display?.text(for: 20), "2.0")
+        XCTAssertEqual(pole("jack.1.rimGain")?.display?.text(for: 80), "8.0")
+
+        // Rekordy RIM nie mają tych pól: znaczenie ich bajtów pod tymi
+        // offsetami nie zostało zmierzone.
+        XCTAssertNil(pole("jack.3.input"))
+        XCTAssertNil(pole("trigset.2.rimGain"))
+    }
+
+    /// H/R Adjust zostaje bez adresu. Kandydat +0x09 pasuje równie dobrze
+    /// do Noise Cancel — oba znikają przy PADx2 — a wniosek z wykluczenia
+    /// już raz w tym projekcie okazał się fałszywy (Mono/Poly).
+    func testHRAdjustStaysUnmappedUntilMeasuredDirectly() {
+        let layout = BackupLayout.mapped2026_09_02
+        XCTAssertNil(layout.globalFields.first { $0.id.lowercased().contains("hradjust") })
+        XCTAssertNil(layout.globalFields.first { $0.id.lowercased().contains("noisecancel") })
     }
 
     /// Pusta jednostka nie zostawia wiszącej spacji na końcu wartości.
@@ -439,7 +457,9 @@ final class BackupFileTests: XCTestCase {
     /// jednego triggera do rekordu następnego.
     func testTriggerInputFieldsStayInsideTheirRecord() {
         let layout = BackupLayout.mapped2026_09_02
-        let ustawienia = layout.globalFields.filter { $0.id.hasPrefix("trigset.") }
+        let ustawienia = layout.globalFields.filter {
+            $0.id.hasPrefix("trigset.") || $0.id.hasPrefix("jack.")
+        }
         XCTAssertFalse(ustawienia.isEmpty)
 
         for pole in ustawienia {

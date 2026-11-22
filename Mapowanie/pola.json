@@ -143,7 +143,7 @@
       "offset": 64,
       "dlugosc": 1,
       "kodowanie": "uint8",
-      "opis": "TRIG IN 1 head. Input: 0 = HEAD&RIM, 1 = PADx2. Zmierzone posrednio seria max2/min2: po przestawieniu wejscia na PADx2 bajt wskoczyl z 0 na 1, a na wyswietlaczu Rim Gain, H/R Adjust i Noise Cancel pokazaly '--' -- czyli przy tym trybie te parametry nie istnieja. POTWIERDZONE WPROST: przy wartosci 1 wyswietlacz pokazuje PADx2.",
+      "opis": "TRIG IN 1 head. Input: 0 = HEAD&RIM, 1 = PADx2. Zmierzone posrednio seria max2/min2: po przestawieniu wejscia na PADx2 bajt wskoczyl z 0 na 1, a na wyswietlaczu Rim Gain, H/R Adjust i Noise Cancel pokazaly '--' -- czyli przy tym trybie te parametry nie istnieja. POTWIERDZONE WPROST: przy wartosci 1 wyswietlacz pokazuje PADx2. ZMIERZONE WPROST: input-headrim.bin -- przestawienie na HEAD&RIM zmienilo TYLKO ten bajt (1 -> 0); zadnego innego parametru nie ruszylo, w przeciwienstwie do Type.",
       "zakres": [
         0,
         1
@@ -230,7 +230,7 @@
       "opis": "TRIG IN 1 head. XTLK Cancel w procentach. Skala 1:1, DWA zgodne punkty: 80% i 40%. KOREKTA: wczesniej przypisane tu H/R Adjust."
     },
     {
-      "nazwa": "trigset.1.rim_gain_lub_hr_a",
+      "nazwa": "trigset.1.hr_adjust_lub_noise_cancel",
       "offset": 73,
       "dlugosc": 1,
       "kodowanie": "uint8",
@@ -238,18 +238,18 @@
         0,
         80
       ],
-      "opis": "TRIG IN 1 head. Rim Gain albo H/R Adjust -- kolejnosc NIEROZSTRZYGNIETA. Przy maksimum oba daja 80 (Rim Gain 8.0 przy dzielniku 10, H/R Adjust 80 wprost), przy minimum 0."
+      "opis": "TRIG IN 1 head. H/R Adjust ALBO Noise Cancel -- oba znikaja przy PADx2. Rim Gain wykluczony pomiarem (siedzi pod +0x0A). Nie przyjmujemy wniosku z wykluczenia, bo przy Mono/Poly okazal sie falszywy."
     },
     {
-      "nazwa": "trigset.1.rim_gain_lub_hr_b",
+      "nazwa": "trigset.1.rim_gain",
       "offset": 74,
       "dlugosc": 1,
-      "kodowanie": "uint8",
+      "kodowanie": "uint8_dziesiate",
       "zakres": [
         0,
         80
       ],
-      "opis": "TRIG IN 1 head. Drugi z pary Rim Gain / H/R Adjust -- patrz +0x09."
+      "opis": "TRIG IN 1 head. Rim Gain, pole GNIAZDA. Wyswietlacz = raw/10 (raw 20 = 2.0, raw 80 = 8.0). ZMIERZONE WPROST: zmiana samego Rim Gain na 2.0 zmienila tylko ten bajt, 15 -> 20 (rimgain.bin)."
     },
     {
       "nazwa": "trigset.1.nieznane_0B",
@@ -383,7 +383,7 @@
       "offset": 94,
       "dlugosc": 1,
       "kodowanie": "uint8",
-      "opis": "TRIG IN 2 head. Input: 0 = HEAD&RIM, 1 = PADx2. Zmierzone posrednio seria max2/min2: po przestawieniu wejscia na PADx2 bajt wskoczyl z 0 na 1, a na wyswietlaczu Rim Gain, H/R Adjust i Noise Cancel pokazaly '--' -- czyli przy tym trybie te parametry nie istnieja. POTWIERDZONE WPROST: przy wartosci 1 wyswietlacz pokazuje PADx2.",
+      "opis": "TRIG IN 2 head. Input: 0 = HEAD&RIM, 1 = PADx2. Zmierzone posrednio seria max2/min2: po przestawieniu wejscia na PADx2 bajt wskoczyl z 0 na 1, a na wyswietlaczu Rim Gain, H/R Adjust i Noise Cancel pokazaly '--' -- czyli przy tym trybie te parametry nie istnieja. POTWIERDZONE WPROST: przy wartosci 1 wyswietlacz pokazuje PADx2. ZMIERZONE WPROST: input-headrim.bin -- przestawienie na HEAD&RIM zmienilo TYLKO ten bajt (1 -> 0); zadnego innego parametru nie ruszylo, w przeciwienstwie do Type.",
       "zakres": [
         0,
         1
@@ -470,7 +470,7 @@
       "opis": "TRIG IN 2 head. XTLK Cancel w procentach. Skala 1:1, DWA zgodne punkty: 80% i 40%. KOREKTA: wczesniej przypisane tu H/R Adjust."
     },
     {
-      "nazwa": "trigset.3.rim_gain_lub_hr_a",
+      "nazwa": "trigset.3.hr_adjust_lub_noise_cancel",
       "offset": 103,
       "dlugosc": 1,
       "kodowanie": "uint8",
@@ -478,18 +478,18 @@
         0,
         80
       ],
-      "opis": "TRIG IN 2 head. Rim Gain albo H/R Adjust -- kolejnosc NIEROZSTRZYGNIETA. Przy maksimum oba daja 80 (Rim Gain 8.0 przy dzielniku 10, H/R Adjust 80 wprost), przy minimum 0."
+      "opis": "TRIG IN 2 head. H/R Adjust ALBO Noise Cancel -- oba znikaja przy PADx2. Rim Gain wykluczony pomiarem (siedzi pod +0x0A). Nie przyjmujemy wniosku z wykluczenia, bo przy Mono/Poly okazal sie falszywy."
     },
     {
-      "nazwa": "trigset.3.rim_gain_lub_hr_b",
+      "nazwa": "trigset.3.rim_gain",
       "offset": 104,
       "dlugosc": 1,
-      "kodowanie": "uint8",
+      "kodowanie": "uint8_dziesiate",
       "zakres": [
         0,
         80
       ],
-      "opis": "TRIG IN 2 head. Drugi z pary Rim Gain / H/R Adjust -- patrz +0x09."
+      "opis": "TRIG IN 2 head. Rim Gain, pole GNIAZDA. Wyswietlacz = raw/10 (raw 20 = 2.0, raw 80 = 8.0). ZMIERZONE WPROST: zmiana samego Rim Gain na 2.0 zmienila tylko ten bajt, 15 -> 20 (rimgain.bin)."
     },
     {
       "nazwa": "trigset.3.nieznane_0B",
@@ -621,7 +621,8 @@
   ],
   "otwartePytania": [
     "Gdzie jest Mono/Poly. NIE pod +0x12: wyswietlacz pokazuje MONO zarowno przy 1, jak i przy 0 w tym bajcie (max2/min2), a fabryczny kit 1 ma tam 1 przy Loop OFF. Rozstrzygnie backup ze zmiana TYLKO Mono/Poly (przy Loop OFF, bo Loop ON wymusza MONO).",
-    "Ktory z bajtow +0x09 / +0x0A rekordu wejscia to Rim Gain, a ktory H/R Adjust. UWAGA: przy Input = PADx2 oba pokazuja '--' i sa niedostepne, wiec pomiar wymaga przestawienia Input na HEAD&RIM.",
+    "Co siedzi pod +0x09 rekordu HEAD: H/R Adjust czy Noise Cancel. Rozstrzygnie backup ze zmiana TYLKO H/R Adjust (przy Input = HEAD&RIM). Gdzie jest drugi z nich -- nieznane.",
+    "Co oznaczaja bajty +0x00 i +0x0A w rekordach RIM (2 i 4) -- maja wartosci, ale nie byly mierzone.",
     "Czym sa bajty +0x05 i +0x07 rekordu wejscia -- oba zmieniaja sie wylacznie razem z Type.",
     "Bajt +0x0B rekordu wejscia: w bazie 2, we wszystkich testach 0.",
     "Nazwy typow pada (Type 1..31) i tablica wartosci domyslnych narzucanych przez kazdy typ.",

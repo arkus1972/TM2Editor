@@ -4,6 +4,8 @@
 <przypisanie> layout.triggerBlockOrigin
 <przypisanie> layout.triggerStride
 file.backupName
+jack.\(numer).input
+jack.\(numer).rimGain
 kit.name
 kit.tempo
 kit.volume

@@ -251,12 +251,15 @@ struct KitDetailView: View {
                 if !polaWejscia.isEmpty {
                     FieldSection(
                         title: "Trigger Input — " + triggerLabel(selection.trigger),
-                        subtitle: "Global: these settings follow the pad, not the kit.",
+                        subtitle: podpisWejscia,
                         fields: polaWejscia,
                         editor: editor,
                         kit: selection.kit,
                         trigger: 1,
-                        bezKontekstuWEtykietach: true
+                        bezKontekstuWEtykietach: true,
+                        wierszNaGorze: editor.obslugujeTypPada
+                            ? AnyView(WierszTypuPada(editor: editor, rekord: selection.trigger))
+                            : nil
                     )
                 }
 
@@ -291,6 +294,18 @@ struct KitDetailView: View {
         let wlasne = editor.layout.globalFields.filter { $0.id.hasPrefix("trigset.\(trigger).") }
         let gniazda = editor.layout.globalFields.filter { $0.id.hasPrefix("jack.\(gniazdo).") }
         return gniazda + wlasne
+    }
+
+    /// Podpis sekcji ustawień wejścia. Drugi rekord każdego gniazda to NIE
+    /// ustawienia obręczy: to drugi pad w trybie PADx2 (kabel rozdzielający
+    /// jedno gniazdo na dwa pady). W trybie HEAD&RIM ten rekord leży nieużywany
+    /// i trzeba to powiedzieć, zanim ktoś zacznie go stroić.
+    private var podpisWejscia: String {
+        let drugiPad = selection.trigger % 2 == 0
+        return drugiPad
+            ? "Global. In the module these belong to the SECOND pad of this jack and "
+                + "only apply when Input is PADx2."
+            : "Global: these settings follow the pad, not the kit."
     }
 
     /// Pola globalne, które nie należą do żadnej strefy.
@@ -374,6 +389,10 @@ struct FieldSection: View {
     /// „Sensitivity — TRIG IN 1 head" skracamy do „Sensitivity".
     var bezKontekstuWEtykietach = false
 
+    /// Dodatkowy wiersz na samej górze sekcji — np. wybór typu pada, który
+    /// nie jest zwykłym polem, bo przestawia resztę sekcji.
+    var wierszNaGorze: AnyView?
+
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             VStack(alignment: .leading, spacing: 2) {
@@ -387,6 +406,10 @@ struct FieldSection: View {
             }
 
             VStack(spacing: 0) {
+                if let wierszNaGorze {
+                    wierszNaGorze
+                    if !fields.isEmpty { Divider() }
+                }
                 ForEach(Array(fields.enumerated()), id: \.element.id) { index, field in
                     if index > 0 { Divider() }
                     // Tożsamość zależna od adresu TYLKO dla pól tekstowych.

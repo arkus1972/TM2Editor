@@ -165,7 +165,7 @@
         1,
         31
       ],
-      "opis": "TRIG IN 1 head. Type (typ pada). NIE DO EDYCJI: zmiana typu przestawia wartosci pozostalych parametrow."
+      "opis": "TRIG IN 1 head. Type (typ pada), kod 0..35. PELNA TABLICA 36 typow z wartosciami domyslnymi zmierzona seriami typy-1..typy-9 (Sources/TM2Editor/Model/TypyPadow.swift). Kod != pozycja na liscie w module: KT-10 = 0, KD-7 = 1, ..., PAD1 = 30, PAD2 = 31, RT-30K = 32, RT-30HR = 33, RT30H_SNR = 34, RT30H_TOM = 35. Zmiana typu ustawia +0x02..+0x07 i +0x09..+0x0B na wartosci domyslne, NIE rusza +0x00 (Input) ani +0x08 (XTLK)."
     },
     {
       "nazwa": "trigset.1.sensitivity",
@@ -205,7 +205,7 @@
       "offset": 69,
       "dlugosc": 1,
       "kodowanie": "uint8",
-      "opis": "TRIG IN 1 head. NIEZNANE. Zmienia sie wylacznie razem z Type: 40 przy Type 31 i 32, 16 przy Type 1. Przy zmianie samego Retrig Cancel NIE drgnelo."
+      "opis": "TRIG IN 1 head. NIEZNANE. Zmienia sie wylacznie razem z Type: 40 przy Type 31 i 32, 16 przy Type 1. Przy zmianie samego Retrig Cancel NIE drgnelo. Wartosci dla kazdego z 36 typow w TypyPadow.swift."
     },
     {
       "nazwa": "trigset.1.retrig_cancel",
@@ -223,7 +223,7 @@
       "offset": 71,
       "dlugosc": 1,
       "kodowanie": "uint8",
-      "opis": "TRIG IN 1 head. NIEZNANE. Zmienia sie wylacznie razem z Type: 12 przy Type 31 i 32, 16 przy Type 1."
+      "opis": "TRIG IN 1 head. NIEZNANE. Zmienia sie wylacznie razem z Type: 12 przy Type 31 i 32, 16 przy Type 1. Wartosci dla kazdego z 36 typow w TypyPadow.swift."
     },
     {
       "nazwa": "trigset.1.xtlk_cancel",
@@ -259,11 +259,11 @@
       "opis": "TRIG IN 1 head. Rim Gain, pole GNIAZDA. Wyswietlacz = raw/10 (raw 20 = 2.0, raw 80 = 8.0). ZMIERZONE WPROST: zmiana samego Rim Gain na 2.0 zmienila tylko ten bajt, 15 -> 20 (rimgain.bin)."
     },
     {
-      "nazwa": "trigset.1.nieznane_0B",
+      "nazwa": "trigset.1.noise_cancel",
       "offset": 75,
       "dlugosc": 1,
-      "kodowanie": "uint8",
-      "opis": "TRIG IN 1 head. NIEZNANE. W bazie 2, we wszystkich testach 0."
+      "kodowanie": "uint8_wprost",
+      "opis": "TRIG IN 1 head. Noise Cancel, pole GNIAZDA. ZMIERZONE WPROST (noise.bin): przy RT-30K wyswietlacz pokazal 2 (= bajt), po ustawieniu 5 bajt poszedl 2 -> 5. Skala 1:1. Dostepny TYLKO przy Input = HEAD&RIM i typach RT-30K / RT-30HR (jedyne z niezerowa wartoscia domyslna: 2 i 3). Zakres na module: do ustalenia."
     },
     {
       "nazwa": "trigset.2.input",
@@ -285,7 +285,7 @@
         1,
         31
       ],
-      "opis": "TRIG IN 1 rim. Type (typ pada). NIE DO EDYCJI: zmiana typu przestawia wartosci pozostalych parametrow."
+      "opis": "TRIG IN 1 rim. Type (typ pada), kod 0..35. PELNA TABLICA 36 typow z wartosciami domyslnymi zmierzona seriami typy-1..typy-9 (Sources/TM2Editor/Model/TypyPadow.swift). Kod != pozycja na liscie w module: KT-10 = 0, KD-7 = 1, ..., PAD1 = 30, PAD2 = 31, RT-30K = 32, RT-30HR = 33, RT30H_SNR = 34, RT30H_TOM = 35. Zmiana typu ustawia +0x02..+0x07 i +0x09..+0x0B na wartosci domyslne, NIE rusza +0x00 (Input) ani +0x08 (XTLK)."
     },
     {
       "nazwa": "trigset.2.sensitivity",
@@ -325,7 +325,7 @@
       "offset": 84,
       "dlugosc": 1,
       "kodowanie": "uint8",
-      "opis": "TRIG IN 1 rim. NIEZNANE. Zmienia sie wylacznie razem z Type: 40 przy Type 31 i 32, 16 przy Type 1. Przy zmianie samego Retrig Cancel NIE drgnelo."
+      "opis": "TRIG IN 1 rim. NIEZNANE. Zmienia sie wylacznie razem z Type: 40 przy Type 31 i 32, 16 przy Type 1. Przy zmianie samego Retrig Cancel NIE drgnelo. Wartosci dla kazdego z 36 typow w TypyPadow.swift."
     },
     {
       "nazwa": "trigset.2.retrig_cancel",
@@ -343,7 +343,7 @@
       "offset": 86,
       "dlugosc": 1,
       "kodowanie": "uint8",
-      "opis": "TRIG IN 1 rim. NIEZNANE. Zmienia sie wylacznie razem z Type: 12 przy Type 31 i 32, 16 przy Type 1."
+      "opis": "TRIG IN 1 rim. NIEZNANE. Zmienia sie wylacznie razem z Type: 12 przy Type 31 i 32, 16 przy Type 1. Wartosci dla kazdego z 36 typow w TypyPadow.swift."
     },
     {
       "nazwa": "trigset.2.xtlk_cancel",
@@ -405,7 +405,7 @@
         1,
         31
       ],
-      "opis": "TRIG IN 2 head. Type (typ pada). NIE DO EDYCJI: zmiana typu przestawia wartosci pozostalych parametrow."
+      "opis": "TRIG IN 2 head. Type (typ pada), kod 0..35. PELNA TABLICA 36 typow z wartosciami domyslnymi zmierzona seriami typy-1..typy-9 (Sources/TM2Editor/Model/TypyPadow.swift). Kod != pozycja na liscie w module: KT-10 = 0, KD-7 = 1, ..., PAD1 = 30, PAD2 = 31, RT-30K = 32, RT-30HR = 33, RT30H_SNR = 34, RT30H_TOM = 35. Zmiana typu ustawia +0x02..+0x07 i +0x09..+0x0B na wartosci domyslne, NIE rusza +0x00 (Input) ani +0x08 (XTLK)."
     },
     {
       "nazwa": "trigset.3.sensitivity",
@@ -445,7 +445,7 @@
       "offset": 99,
       "dlugosc": 1,
       "kodowanie": "uint8",
-      "opis": "TRIG IN 2 head. NIEZNANE. Zmienia sie wylacznie razem z Type: 40 przy Type 31 i 32, 16 przy Type 1. Przy zmianie samego Retrig Cancel NIE drgnelo."
+      "opis": "TRIG IN 2 head. NIEZNANE. Zmienia sie wylacznie razem z Type: 40 przy Type 31 i 32, 16 przy Type 1. Przy zmianie samego Retrig Cancel NIE drgnelo. Wartosci dla kazdego z 36 typow w TypyPadow.swift."
     },
     {
       "nazwa": "trigset.3.retrig_cancel",
@@ -463,7 +463,7 @@
       "offset": 101,
       "dlugosc": 1,
       "kodowanie": "uint8",
-      "opis": "TRIG IN 2 head. NIEZNANE. Zmienia sie wylacznie razem z Type: 12 przy Type 31 i 32, 16 przy Type 1."
+      "opis": "TRIG IN 2 head. NIEZNANE. Zmienia sie wylacznie razem z Type: 12 przy Type 31 i 32, 16 przy Type 1. Wartosci dla kazdego z 36 typow w TypyPadow.swift."
     },
     {
       "nazwa": "trigset.3.xtlk_cancel",
@@ -499,11 +499,11 @@
       "opis": "TRIG IN 2 head. Rim Gain, pole GNIAZDA. Wyswietlacz = raw/10 (raw 20 = 2.0, raw 80 = 8.0). ZMIERZONE WPROST: zmiana samego Rim Gain na 2.0 zmienila tylko ten bajt, 15 -> 20 (rimgain.bin)."
     },
     {
-      "nazwa": "trigset.3.nieznane_0B",
+      "nazwa": "trigset.3.noise_cancel",
       "offset": 105,
       "dlugosc": 1,
-      "kodowanie": "uint8",
-      "opis": "TRIG IN 2 head. NIEZNANE. W bazie 2, we wszystkich testach 0."
+      "kodowanie": "uint8_wprost",
+      "opis": "TRIG IN 2 head. Noise Cancel, pole GNIAZDA. ZMIERZONE WPROST (noise.bin): przy RT-30K wyswietlacz pokazal 2 (= bajt), po ustawieniu 5 bajt poszedl 2 -> 5. Skala 1:1. Dostepny TYLKO przy Input = HEAD&RIM i typach RT-30K / RT-30HR (jedyne z niezerowa wartoscia domyslna: 2 i 3). Zakres na module: do ustalenia."
     },
     {
       "nazwa": "trigset.4.input",
@@ -525,7 +525,7 @@
         1,
         31
       ],
-      "opis": "TRIG IN 2 rim. Type (typ pada). NIE DO EDYCJI: zmiana typu przestawia wartosci pozostalych parametrow."
+      "opis": "TRIG IN 2 rim. Type (typ pada), kod 0..35. PELNA TABLICA 36 typow z wartosciami domyslnymi zmierzona seriami typy-1..typy-9 (Sources/TM2Editor/Model/TypyPadow.swift). Kod != pozycja na liscie w module: KT-10 = 0, KD-7 = 1, ..., PAD1 = 30, PAD2 = 31, RT-30K = 32, RT-30HR = 33, RT30H_SNR = 34, RT30H_TOM = 35. Zmiana typu ustawia +0x02..+0x07 i +0x09..+0x0B na wartosci domyslne, NIE rusza +0x00 (Input) ani +0x08 (XTLK)."
     },
     {
       "nazwa": "trigset.4.sensitivity",
@@ -565,7 +565,7 @@
       "offset": 114,
       "dlugosc": 1,
       "kodowanie": "uint8",
-      "opis": "TRIG IN 2 rim. NIEZNANE. Zmienia sie wylacznie razem z Type: 40 przy Type 31 i 32, 16 przy Type 1. Przy zmianie samego Retrig Cancel NIE drgnelo."
+      "opis": "TRIG IN 2 rim. NIEZNANE. Zmienia sie wylacznie razem z Type: 40 przy Type 31 i 32, 16 przy Type 1. Przy zmianie samego Retrig Cancel NIE drgnelo. Wartosci dla kazdego z 36 typow w TypyPadow.swift."
     },
     {
       "nazwa": "trigset.4.retrig_cancel",
@@ -583,7 +583,7 @@
       "offset": 116,
       "dlugosc": 1,
       "kodowanie": "uint8",
-      "opis": "TRIG IN 2 rim. NIEZNANE. Zmienia sie wylacznie razem z Type: 12 przy Type 31 i 32, 16 przy Type 1."
+      "opis": "TRIG IN 2 rim. NIEZNANE. Zmienia sie wylacznie razem z Type: 12 przy Type 31 i 32, 16 przy Type 1. Wartosci dla kazdego z 36 typow w TypyPadow.swift."
     },
     {
       "nazwa": "trigset.4.xtlk_cancel",
@@ -627,12 +627,11 @@
     }
   ],
   "otwartePytania": [
-    "Gdzie jest Noise Cancel. Przy Type = PAD2 pokazuje '--' NAWET przy Input = HEAD&RIM -- czyli jego dostepnosc zalezy od typu pada, a nie od Input. Pomiar wymaga typu pada, ktory go udostepnia: przestawic Type (backup A), potem zmienic tylko Noise Cancel (backup B). Kandydat: +0x0B rekordu HEAD (w bazie 2, we wszystkich testach 0) -- NIESPRAWDZONE.",
+    "Zakres Noise Cancel na module (min/max) -- adres +0x0B i skala 1:1 juz zmierzone.",
+    "Drugi rekord kazdego gniazda (2 i 4) to drugi pad w trybie PADx2 -- potwierdzone seria typow (4 niezalezne typy). W trybie HEAD&RIM rekord nieuzywany.",
     "Czy modul zmienia cos w rekordzie wejscia sam. Dwa bajty zmienily sie bez wiedzy Arka (Sensitivity 17 -> 32 w trzy-drobiazgi.bin, H/R Adjust 20 -> 31 w poly.bin). Rozstrzygnie para pustych backupow bez dotykania czegokolwiek.",
     "Co oznaczaja bajty +0x00 i +0x0A w rekordach RIM (2 i 4) -- maja wartosci, ale nie byly mierzone.",
     "Czym sa bajty +0x05 i +0x07 rekordu wejscia -- oba zmieniaja sie wylacznie razem z Type.",
-    "Bajt +0x0B rekordu wejscia: w bazie 2, we wszystkich testach 0.",
-    "Nazwy typow pada (Type 1..31) i tablica wartosci domyslnych narzucanych przez kazdy typ.",
     "Nazwy dwoch brakujacych krzywych (Curve 0..6; wiemy, ze 6 = LOUD2).",
     "Pelna lista typow efektu kitu (THRU = 0, REVERB = 19) i ktore pola strefy nalezaza do ktorego typu.",
     "Slot brzmienia: +0x02 (wszedzie 1), +0x16 (wszedzie 0xFFFF), +0x18, +0x1C..+0x28.",

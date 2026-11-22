@@ -446,4 +446,65 @@ final class KitEditorTests: XCTestCase {
         XCTAssertEqual(editor.value(of: pole, kit: 12, trigger: 1)?.numberValue, 42)
         XCTAssertFalse(editor.hasPendingText)
     }
+
+    // MARK: - Typ pada
+
+    private func makeMappedEditor() -> KitEditor {
+        var bytes = [UInt8](repeating: 0, count: 124_748)
+        // Rekord 1: Input = HEAD&RIM, typ BT-1 SENS (26) z jakimiś ręcznie
+        // zmienionymi wartościami i XTLK Cancel = 55.
+        let rekord1: [UInt8] = [0, 26, 30, 25, 3, 32, 6, 12, 55, 0, 10, 0, 0, 0, 0]
+        bytes.replaceSubrange(0x40..<0x4F, with: rekord1)
+        let file = BackupFile(bytes: bytes, layout: .mapped2026_09_02)
+        return KitEditor(file: file, log: EditorLog())
+    }
+
+    /// Zmiana typu robi to, co moduł: kod + wartości domyślne nowego typu,
+    /// XTLK Cancel i Input nietknięte.
+    func testZmianaTypuWpisujeWartosciDomyslneJakModul() throws {
+        let editor = makeMappedEditor()
+        XCTAssertEqual(editor.padType(rekord: 1)?.nazwa, "BT-1 SENS")
+
+        let pad2 = try XCTUnwrap(TypyPadow.typ(kod: 31))
+        XCTAssertTrue(editor.setPadType(pad2, rekord: 1))
+
+        let rekord = try XCTUnwrap(editor.file.slice(at: 0x40, length: 15))
+        XCTAssertEqual(rekord[0], 0, "Input nietknięty.")
+        XCTAssertEqual(rekord[8], 55, "XTLK Cancel nietknięty — typ go nie rusza.")
+        XCTAssertEqual(Array(rekord[1...11]), pad2.bajtyRekordu(zachowujacXTLK: 55))
+        XCTAssertEqual(editor.padType(rekord: 1)?.nazwa, "PAD2")
+    }
+
+    /// Jedna zmiana typu to jedna pozycja na liście — i jedno cofnięcie
+    /// przywraca wszystko, łącznie z ręcznie dostrojonymi wartościami.
+    func testZmianaTypuToJednaPozycjaICofaSieWCalosci() throws {
+        let editor = makeMappedEditor()
+        let przed = try XCTUnwrap(editor.file.slice(at: 0x40, length: 15))
+
+        editor.setPadType(try XCTUnwrap(TypyPadow.typ(kod: 32)), rekord: 1)
+        XCTAssertEqual(editor.changes.count, 1)
+
+        editor.undo()
+        XCTAssertEqual(editor.file.slice(at: 0x40, length: 15), przed,
+                       "Cofnięcie ma przywrócić cały rekord co do bajtu.")
+    }
+
+    /// Kod spoza zmierzonej tablicy nie dostaje nazwy — edytor nie udaje,
+    /// że wie, co to za pad.
+    func testNieznanyKodTypuNieMaNazwy() {
+        var bytes = [UInt8](repeating: 0, count: 124_748)
+        bytes[0x41] = 99
+        let editor = KitEditor(file: BackupFile(bytes: bytes, layout: .mapped2026_09_02),
+                               log: EditorLog())
+        XCTAssertNil(editor.padType(rekord: 1))
+    }
+
+    /// Przy pustym układzie (nic nie wiadomo o pliku) zmiana typu jest
+    /// niedostępna — pisalibyśmy na ślepo.
+    func testBezZmapowanegoUkladuTypuNieDaSieZmienic() throws {
+        let editor = makeEditor()
+        XCTAssertFalse(editor.obslugujeTypPada)
+        XCTAssertFalse(editor.setPadType(try XCTUnwrap(TypyPadow.typ(kod: 1)), rekord: 1))
+        XCTAssertTrue(editor.changes.isEmpty)
+    }
 }

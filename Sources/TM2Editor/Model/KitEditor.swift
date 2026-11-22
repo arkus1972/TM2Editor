@@ -239,6 +239,96 @@ final class KitEditor: ObservableObject {
         return true
     }
 
+    // MARK: - Typ pada
+
+    /// Rekordy ustawień wejść: cztery po 15 B od 0x40 (zmierzone, wpis (s)
+    /// dziennika). Rekord 1 i 3 to pierwsze pady gniazd, 2 i 4 — drugie pady,
+    /// używane tylko w trybie PADx2.
+    private static let poczatekRekordowWejsc = 0x40
+    private static let dlugoscRekorduWejscia = 15
+
+    private static func adresRekordu(_ rekord: Int) -> Int {
+        poczatekRekordowWejsc + (rekord - 1) * dlugoscRekorduWejscia
+    }
+
+    /// Czy układ zna ustawienia wejść. Bez tego (np. przy pustym układzie
+    /// `unmappedTM2`) zmiana typu nie może być dostępna — pisalibyśmy na ślepo.
+    var obslugujeTypPada: Bool {
+        layout.globalFields.contains { $0.id.hasPrefix("trigset.") }
+    }
+
+    /// Typ pada w rekordzie 1…4 albo `nil`, gdy w pliku stoi kod spoza
+    /// zmierzonej tablicy — wtedy edytor go nie nazywa i nie udaje, że wie.
+    func padType(rekord: Int) -> TypPada? {
+        guard obslugujeTypPada, (1...4).contains(rekord),
+              let bajt = file.byte(at: Self.adresRekordu(rekord) + TypyPadow.poczatekWRekordzie)
+        else { return nil }
+        return TypyPadow.typ(kod: Int(bajt))
+    }
+
+    /// Zmienia typ pada DOKŁADNIE tak, jak robi to moduł: wpisuje kod typu
+    /// i jego wartości domyślne (Sensitivity, Threshold, Curve, Retrig Cancel,
+    /// H/R Adjust, Rim Gain, Noise Cancel oraz dwa bajty wyliczane z typu),
+    /// a XTLK Cancel i Input zostawia nietknięte.
+    ///
+    /// Do tej pory Type był świadomie poza edycją: zapisanie samego kodu
+    /// zostawiłoby w pliku komplet parametrów od poprzedniego pada, którego
+    /// moduł nigdy by sam nie ustawił. Tablica wartości domyślnych dla
+    /// wszystkich 36 typów to usuwa.
+    ///
+    /// Cała zmiana to JEDNA pozycja na liście zmian (11 bajtów naraz), więc
+    /// jedno cofnięcie przywraca typ razem ze wszystkimi parametrami, które
+    /// ze sobą pociągnął — w tym te, które użytkownik dostroił ręcznie.
+    @discardableResult
+    func setPadType(_ typ: TypPada, rekord: Int) -> Bool {
+        guard obslugujeTypPada, (1...4).contains(rekord) else {
+            lastError = "Pad type cannot be edited with this layout."
+            return false
+        }
+        let start = Self.adresRekordu(rekord) + TypyPadow.poczatekWRekordzie
+        guard let stare = file.slice(at: start, length: TypyPadow.dlugosc) else {
+            lastError = "Trigger settings point outside the file."
+            log.append(.warning, "Rekord wejścia \(rekord) wypada poza plikiem")
+            return false
+        }
+        let xtlk = stare[TypyPadow.pozycjaXTLK - TypyPadow.poczatekWRekordzie]
+        let nowe = typ.bajtyRekordu(zachowujacXTLK: xtlk)
+        guard nowe != stare else { return true }
+
+        do {
+            try file.setSlice(nowe, at: start)
+        } catch {
+            lastError = error.localizedDescription
+            log.append(.error, "Zmiana typu pada nie powiodła się: \(error.localizedDescription)")
+            return false
+        }
+
+        let poprzedni = TypyPadow.typ(kod: Int(stare[0]))?.nazwa ?? "#\(stare[0])"
+        let change = EditChange(
+            fieldID: "trigset.\(rekord).type",
+            fieldLabel: "Pad Type — \(Self.nazwaRekordu(rekord))",
+            scope: .global,
+            kit: 1,
+            trigger: rekord,
+            oldValue: .text(poprzedni),
+            newValue: .text(typ.nazwa),
+            timestamp: Date(),
+            offset: start,
+            oldRaw: stare,
+            newRaw: nowe
+        )
+        changes.append(change)
+        redoStack.removeAll()
+        odswiezPamiecPodreczna()
+        log.append(.edit, change.summary + " (z wartościami domyślnymi typu)")
+        return true
+    }
+
+    private static func nazwaRekordu(_ rekord: Int) -> String {
+        let gniazdo = (rekord - 1) / 2 + 1
+        return rekord % 2 == 1 ? "TRIG IN \(gniazdo)" : "TRIG IN \(gniazdo) pad 2"
+    }
+
     // MARK: - Cofanie i ponawianie
 
     func undo() {

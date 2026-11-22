@@ -394,10 +394,12 @@ final class BackupFileTests: XCTestCase {
         }
     }
 
-    /// `Type` jest zmapowany (wiemy, że to +0x01), ale CELOWO nie jest
-    /// wystawiony do edycji: zmiana typu pada przestawia w module wartości
-    /// pozostałych parametrów, a edytor pliku nie zna tych wartości
-    /// domyślnych. Ten test pilnuje, żeby nie wrócił tu przez przypadek.
+    /// `Type` NIE jest zwykłym polem i nie może się nim stać: zmiana typu pada
+    /// przestawia w module resztę ustawień wejścia, więc zapisanie samego kodu
+    /// zostawiłoby w pliku parametry poprzedniego pada. Typ zmienia wyłącznie
+    /// `KitEditor.setPadType`, który wpisuje kod razem z wartościami
+    /// domyślnymi z tablicy `TypyPadow`. Ten test pilnuje, żeby ogólna ścieżka
+    /// zapisu pola nie dostała go przez przypadek.
     func testPadTypeIsDeliberatelyNotEditable() {
         let layout = BackupLayout.mapped2026_09_02
         for numer in 1...4 {
@@ -680,6 +682,42 @@ final class BackupFileTests: XCTestCase {
         XCTAssertNil(FieldDisplay.plain.parse("12.5"))
         XCTAssertNil(FieldDisplay.panLeftRight.parse("X5"))
         XCTAssertNil(FieldDisplay.panLeftRight.parse("L-3"))
+    }
+
+    // MARK: - Typy padów
+
+    /// Tablica jest wygenerowana z pomiarów `typy-1` … `typy-9`. Pilnujemy jej
+    /// kształtu: 36 typów, numery 0–35 bez dziur i powtórzeń, a kolejność
+    /// z modułu to przestawienie tych samych 36 numerów.
+    func testPadTypeTableIsComplete() {
+        let kody = TypyPadow.wszystkie.map(\.kod)
+        XCTAssertEqual(kody, Array(0...35))
+        XCTAssertEqual(Set(TypyPadow.wszystkie.map(\.nazwa)).count, 36, "Nazwy bez powtórzeń.")
+        XCTAssertEqual(TypyPadow.kolejnoscNaModule.sorted(), Array(0...35))
+
+        // Na liście w module pierwszy jest KD-7, ostatni PAD2 — tak spisał Arek
+        // i tak wyszło z serii min/max (1 i 31).
+        XCTAssertEqual(TypyPadow.typ(kod: TypyPadow.kolejnoscNaModule.first!)?.nazwa, "KD-7")
+        XCTAssertEqual(TypyPadow.typ(kod: TypyPadow.kolejnoscNaModule.last!)?.nazwa, "PAD2")
+        // A numer 0 ma KT-10, nie KD-7.
+        XCTAssertEqual(TypyPadow.typ(kod: 0)?.nazwa, "KT-10")
+    }
+
+    /// Trzy niezależne potwierdzenia jednego wiersza: RT-30K zmierzony w `typy-6`,
+    /// drugi raz w `noise.bin` i w pierwotnej bazie Arka (HEAD&RIM).
+    func testRT30KDefaultsMatchThreeMeasurements() {
+        guard let rt30k = TypyPadow.typ(kod: 32) else { return XCTFail("Brak RT-30K.") }
+        XCTAssertEqual(rt30k.nazwa, "RT-30K")
+        XCTAssertEqual(rt30k.bajtyRekordu(zachowujacXTLK: 40),
+                       [32, 8, 15, 0, 36, 9, 12, 40, 0, 0, 2])
+    }
+
+    /// Noise Cancel ma wartość domyślną TYLKO przy dwóch typach, które go
+    /// pokazują na module: RT-30K i RT-30HR. To było pierwsze wskazanie, gdzie
+    /// leży (+0x0B), zanim potwierdził to pomiar wprost.
+    func testOnlyRT30KAndRT30HRHaveNoiseCancel() {
+        let zNoise = TypyPadow.wszystkie.filter { $0.noiseCancel != 0 }.map(\.nazwa).sorted()
+        XCTAssertEqual(zNoise, ["RT-30HR", "RT-30K"])
     }
 
     /// `unmappedTM2` ma zostać nietknięty — zależą od niego pozostałe testy

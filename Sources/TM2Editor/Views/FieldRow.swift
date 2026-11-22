@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 /// Jeden wiersz edycji parametru.
@@ -13,41 +14,53 @@ struct FieldRow: View {
     let kit: Int
     let trigger: Int
 
+    /// Etykieta do pokazania zamiast `field.label`. Sekcja, która już w nagłówku
+    /// mówi „TRIG IN 1 · head", nie musi tego powtarzać w każdym wierszu.
+    var labelOverride: String?
+
+    /// Wspólna szerokość kolumny z kontrolkami. Dzięki niej pole liczbowe,
+    /// lista wyboru, przełącznik i pole tekstowe kończą się w jednej linii —
+    /// wcześniej każdy wiersz miał inną szerokość, bo suwak pojawiał się
+    /// tylko przy części pól, i całość wyglądała nierówno.
+    static let szerokoscKontrolki: CGFloat = 220
+
     var body: some View {
-        HStack(alignment: .center, spacing: 12) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(field.label)
-                    .font(.callout)
+        HStack(alignment: .center, spacing: 16) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(labelOverride ?? field.label)
+                    .font(.title3)
                     .foregroundStyle(field.isMapped ? .primary : .secondary)
 
                 if let detail = detailText {
                     Text(detail)
-                        .font(.caption2)
+                        .font(.caption)
                         .foregroundStyle(.tertiary)
                 }
             }
-            .frame(width: 170, alignment: .leading)
 
-            Spacer(minLength: 8)
+            Spacer(minLength: 12)
 
-            if !field.isMapped {
-                Text("not mapped yet")
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 3)
-                    .background(Color.secondary.opacity(0.10),
-                                in: Capsule())
-            } else if currentValue == nil {
-                Label("offset outside file", systemImage: "exclamationmark.triangle")
-                    .font(.caption)
-                    .foregroundStyle(.orange)
-            } else {
-                editorControl
+            Group {
+                if !field.isMapped {
+                    Text("not mapped yet")
+                        .font(.callout)
+                        .foregroundStyle(.tertiary)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(Color.secondary.opacity(0.10),
+                                    in: Capsule())
+                } else if currentValue == nil {
+                    Label("offset outside file", systemImage: "exclamationmark.triangle")
+                        .font(.callout)
+                        .foregroundStyle(.orange)
+                } else {
+                    editorControl
+                }
             }
+            .frame(width: Self.szerokoscKontrolki, alignment: .trailing)
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 9)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
     }
 
     // MARK: - Kontrolka zależna od kodowania
@@ -57,8 +70,8 @@ struct FieldRow: View {
         switch field.encoding {
         case .ascii(let length):
             TextField("", text: textBinding)
+                .font(.title3)
                 .textFieldStyle(.roundedBorder)
-                .frame(width: 180)
                 .focused($maTekstFokus)
                 .onSubmit { commitText() }
                 .onChange(of: maTekstFokus) { zatwierdzPoUtracieFokusu($0) }
@@ -66,8 +79,8 @@ struct FieldRow: View {
 
         case .utf16LE(let length):
             TextField("", text: textBinding)
+                .font(.title3)
                 .textFieldStyle(.roundedBorder)
-                .frame(width: 180)
                 .focused($maTekstFokus)
                 .onSubmit { commitText() }
                 .onChange(of: maTekstFokus) { zatwierdzPoUtracieFokusu($0) }
@@ -77,6 +90,7 @@ struct FieldRow: View {
             Toggle("", isOn: boolBinding)
                 .labelsHidden()
                 .toggleStyle(.switch)
+                .controlSize(.large)
 
         case .enumeration(let values):
             Picker("", selection: numberBinding) {
@@ -85,42 +99,29 @@ struct FieldRow: View {
                 }
             }
             .labelsHidden()
-            .frame(width: 180)
+            .controlSize(.large)
 
         default:
-            HStack(spacing: 10) {
-                // Próg podniesiony z 512 na 4096: offset ma zakres 0…3000
-                // i bez suwaka trzeba by go klikać stepperem trzy tysiące razy.
-                if let range = field.encoding.numericRange, range.count <= 4096 {
-                    Slider(
-                        value: Binding(
-                            get: { Double(numberBinding.wrappedValue) },
-                            set: { numberBinding.wrappedValue = Int($0.rounded()) }
-                        ),
-                        in: Double(range.lowerBound)...Double(range.upperBound),
-                        step: 1
-                    )
-                    .frame(width: 140)
+            // Jeden wzór dla KAŻDEJ liczby: duża wartość do wpisania
+            // z klawiatury i przyciski −/+ obok, jak na samym module.
+            // Suwaki zniknęły — pojawiały się tylko przy części pól, więc
+            // wiersze miały różne szerokości, a przy zakresach typu 0…3000
+            // i tak nie dało się nimi trafić w konkretną wartość.
+            PoleLiczbowe(
+                wartosc: numberBinding.wrappedValue,
+                zakres: field.encoding.numericRange ?? 0...255,
+                wyswietlanie: field.display ?? .plain,
+                ustaw: { nowa in
+                    editor.set(.number(nowa), for: field, kit: kit, trigger: trigger)
+                },
+                zapamietajNiezatwierdzone: { liczba in
+                    editor.rememberPendingNumber(liczba, for: field,
+                                                 kit: kit, trigger: trigger)
+                },
+                zapomnijNiezatwierdzone: {
+                    editor.forgetPendingText(for: field, kit: kit, trigger: trigger)
                 }
-
-                // Wartość MUSI być widoczna. Wcześniej był tu tylko Stepper
-                // z liczbą jako etykietą — a `.labelsHidden()` ukrywał etykietę
-                // razem z liczbą, więc przy polach bez suwaka nie było widać nic.
-                VStack(alignment: .trailing, spacing: 0) {
-                    Text(displayedValue)
-                        .font(.system(.body, design: .monospaced))
-                    if let raw = rawValueText {
-                        Text(raw)
-                            .font(.system(.caption2, design: .monospaced))
-                            .foregroundStyle(.tertiary)
-                    }
-                }
-                .frame(width: 76, alignment: .trailing)
-
-                Stepper("", value: numberBinding,
-                        in: field.encoding.numericRange ?? 0...255)
-                    .labelsHidden()
-            }
+            )
         }
     }
 
@@ -218,6 +219,11 @@ struct FieldRow: View {
         var parts = [String(format: "0x%X (%d)", offset, offset)]
         if let range = field.encoding.numericRange, !field.encoding.isTextual {
             parts.append("\(range.lowerBound)…\(range.upperBound)")
+        }
+        // Surowa liczba z pliku — tylko gdy różni się od tego, co widać
+        // w polu. Przy mapowaniu trzeba wiedzieć, co naprawdę siedzi w pliku.
+        if let raw = rawValueText {
+            parts.append("raw \(raw)")
         }
         return parts.joined(separator: "  ·  ")
     }

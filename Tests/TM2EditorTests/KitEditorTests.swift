@@ -427,4 +427,23 @@ final class KitEditorTests: XCTestCase {
         editor.revertAll()
         XCTAssertFalse(editor.hasPendingText)
     }
+
+    /// Ta sama pułapka co z nazwą kitu, tylko dla liczb: „300" wpisane w pole
+    /// i niezatwierdzone przed „Save As…" musi trafić do pliku.
+    func testZapisZatwierdzaLiczbeWpisanaBezEntera() {
+        let editor = makeEditor()
+        let pole = levelField(editor)
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("tm2-out-\(UUID().uuidString).bin")
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        editor.rememberPendingNumber(42, for: pole, kit: 12, trigger: 1)
+        XCTAssertTrue(editor.hasPendingText, "Wpisana liczba ma odblokować zapis.")
+        XCTAssertTrue(editor.changes.isEmpty)
+
+        editor.save(to: url)
+
+        XCTAssertEqual(editor.value(of: pole, kit: 12, trigger: 1)?.numberValue, 42)
+        XCTAssertFalse(editor.hasPendingText)
+    }
 }

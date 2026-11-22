@@ -631,6 +631,57 @@ final class BackupFileTests: XCTestCase {
                         "Nazwa backupu musi zostać polem do edycji.")
     }
 
+    // MARK: - Wpisywanie wartości z klawiatury
+
+    /// Każda wartość pokazana na ekranie musi dać się wpisać z powrotem
+    /// i dać tę samą liczbę. Inaczej samo kliknięcie w pole i wyjście z niego
+    /// zmieniałoby plik albo kończyło się sygnałem błędu.
+    func testParseIsExactInverseOfTextForEveryDisplay() {
+        let przypadki: [(FieldDisplay, ClosedRange<Int>)] = [
+            (.plain, 0...127),
+            (.panLeftRight, -15...15),
+            (.offWhenNegative, -1...127),
+            (.scaled(divisor: 10, fractionDigits: 1, unit: "ms"), 0...3000),
+            (.scaled(divisor: 10, fractionDigits: 1, unit: ""), 0...80),
+        ]
+        for (wyswietlanie, zakres) in przypadki {
+            for wartosc in zakres {
+                let tekst = wyswietlanie.text(for: wartosc)
+                XCTAssertEqual(wyswietlanie.parse(tekst), wartosc,
+                               "\(wyswietlanie): \"\(tekst)\" nie wraca do \(wartosc)")
+            }
+        }
+    }
+
+    /// Wpisuje się tak, jak pokazuje moduł — i tak, jak się naturalnie pisze.
+    func testParseAcceptsHowPeopleActuallyType() {
+        let pan = FieldDisplay.panLeftRight
+        XCTAssertEqual(pan.parse("c"), 0)
+        XCTAssertEqual(pan.parse("center"), 0)
+        XCTAssertEqual(pan.parse("l3"), -3)
+        XCTAssertEqual(pan.parse(" R15 "), 15)
+        XCTAssertEqual(pan.parse("-7"), -7)
+
+        let offset = FieldDisplay.scaled(divisor: 10, fractionDigits: 1, unit: "ms")
+        XCTAssertEqual(offset.parse("300"), 3000)
+        XCTAssertEqual(offset.parse("12,5"), 125, "Przecinek dziesiętny też.")
+        XCTAssertEqual(offset.parse("0.1 ms"), 1)
+
+        XCTAssertEqual(FieldDisplay.offWhenNegative.parse("off"), -1)
+    }
+
+    /// Nic nie jest po cichu zaokrąglane ani zgadywane.
+    func testParseRejectsWhatItCannotReadExactly() {
+        let offset = FieldDisplay.scaled(divisor: 10, fractionDigits: 1, unit: "ms")
+        XCTAssertNil(offset.parse("0.15"), "Między krokami 0,1 ms — odmowa, nie zaokrąglenie.")
+        XCTAssertNil(offset.parse("1e300"), "Nie może wywrócić programu.")
+        XCTAssertNil(offset.parse("abc"))
+        XCTAssertNil(FieldDisplay.plain.parse(""))
+        XCTAssertNil(FieldDisplay.plain.parse("12.5"))
+        XCTAssertNil(FieldDisplay.panLeftRight.parse("X5"))
+        XCTAssertNil(FieldDisplay.panLeftRight.parse("L-3"))
+    }
+
     /// `unmappedTM2` ma zostać nietknięty — zależą od niego pozostałe testy
     /// i tryb pracy „jeszcze nic nie wiem o formacie".
     func testUnmappedLayoutStaysUnmapped() {

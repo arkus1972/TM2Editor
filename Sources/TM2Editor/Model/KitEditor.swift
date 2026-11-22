@@ -325,8 +325,12 @@ final class KitEditor: ObservableObject {
     /// rejestr, zanim ruszy bajty. Celowo NIE jest to `@Published`: wpis
     /// leci przy każdym naciśnięciu klawisza i nie ma po co przerysowywać
     /// z tego powodu widoku.
+    ///
+    /// Od wprowadzenia pól liczbowych z wpisywaniem z klawiatury rejestr
+    /// trzyma też liczby — ta sama pułapka dotyczy „300" wpisanego w Offset
+    /// i niezatwierdzonego przed kliknięciem „Save As…".
     private var niezatwierdzonyTekst: [String: (pole: FieldSpec, kit: Int,
-                                                trigger: Int, tekst: String)] = [:]
+                                                trigger: Int, wartosc: FieldValue)] = [:]
 
     /// Czy w buforach czeka jakiś tekst. To jedyna rzecz z rejestru, która
     /// musi być widoczna dla widoków: bez niej przycisk „Save As…" zostaje
@@ -352,7 +356,16 @@ final class KitEditor: ObservableObject {
     func rememberPendingText(_ tekst: String, for field: FieldSpec,
                              kit: Int, trigger: Int) {
         niezatwierdzonyTekst[kluczTekstu(field, kit: kit, trigger: trigger)] =
-            (field, kit, trigger, tekst)
+            (field, kit, trigger, .text(tekst))
+        odswiezZnacznikTekstu()
+    }
+
+    /// Liczba wpisana z klawiatury, już przeliczona z postaci ekranowej
+    /// („R15", „300.0 ms") na wartość pola, ale jeszcze niezatwierdzona.
+    func rememberPendingNumber(_ liczba: Int, for field: FieldSpec,
+                               kit: Int, trigger: Int) {
+        niezatwierdzonyTekst[kluczTekstu(field, kit: kit, trigger: trigger)] =
+            (field, kit, trigger, .number(liczba))
         odswiezZnacznikTekstu()
     }
 
@@ -377,12 +390,12 @@ final class KitEditor: ObservableObject {
         var zapisane = 0
         for wpis in oczekujace {
             let przed = changes.count
-            set(.text(wpis.tekst), for: wpis.pole, kit: wpis.kit, trigger: wpis.trigger)
+            set(wpis.wartosc, for: wpis.pole, kit: wpis.kit, trigger: wpis.trigger)
             if changes.count != przed { zapisane += 1 }
         }
         if zapisane > 0 {
             log.append(.info, "Zatwierdzono \(zapisane) niewysłanych zmian"
-                + " w polach tekstowych przed zapisem")
+                + " wpisanych z klawiatury przed zapisem")
         }
         return zapisane
     }

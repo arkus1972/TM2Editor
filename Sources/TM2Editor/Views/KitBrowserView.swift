@@ -21,10 +21,10 @@ struct KitBrowserView: View {
                 names: editor.kitNames,
                 changedKits: editor.changedKits
             )
-            .frame(minWidth: 200, idealWidth: 240, maxWidth: 320)
+            .frame(minWidth: 240, idealWidth: 290, maxWidth: 380)
 
             KitDetailView(editor: editor, selection: selection)
-                .frame(minWidth: 520)
+                .frame(minWidth: 620)
         }
     }
 }
@@ -78,11 +78,11 @@ struct KitListView: View, Equatable {
         VStack(spacing: 0) {
             HStack {
                 Text("Kits")
-                    .font(.caption.weight(.semibold))
+                    .font(.headline)
                     .foregroundStyle(.secondary)
                 Spacer()
                 Text("\(kitCount)")
-                    .font(.caption)
+                    .font(.callout)
                     .foregroundStyle(.tertiary)
             }
             .padding(.horizontal, 12)
@@ -97,14 +97,15 @@ struct KitListView: View, Equatable {
             // poza ekranem. Wyglądałoby to jak brak zaznaczenia.
             ScrollViewReader { widok in
                 List(Array(1...kitCount), id: \.self, selection: kitSelection) { kit in
-                    HStack(spacing: 8) {
+                    HStack(spacing: 10) {
                         Text(String(format: "%02d", kit))
-                            .font(.system(.body, design: .monospaced))
+                            .font(.system(.title3, design: .monospaced))
                             .foregroundStyle(.secondary)
-                            .frame(width: 28, alignment: .trailing)
+                            .frame(width: 34, alignment: .trailing)
 
                         if let name = name(for: kit) {
                             Text(name)
+                                .font(.title3)
                         } else {
                             Text("—")
                                 .foregroundStyle(.tertiary)
@@ -187,7 +188,7 @@ struct KitDetailView: View {
                 if !editor.layout.triggerFields.isEmpty {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Trigger")
-                            .font(.headline)
+                            .font(.title2.weight(.semibold))
 
                         Picker("", selection: triggerSelection) {
                             ForEach(Array(1...max(editor.layout.triggerCount, 1)),
@@ -197,9 +198,10 @@ struct KitDetailView: View {
                         }
                         .pickerStyle(.segmented)
                         .labelsHidden()
+                        .controlSize(.large)
 
                         Text(triggerHint)
-                            .font(.caption)
+                            .font(.callout)
                             .foregroundStyle(.secondary)
                     }
 
@@ -217,11 +219,26 @@ struct KitDetailView: View {
                     }
                 }
 
-                // Ustawienia globalne
-                if !editor.layout.globalFields.isEmpty {
+                // Ustawienia wejścia — TYLKO dla wybranej strefy. Wcześniej
+                // na dole wisiały wszystkie cztery naraz (ok. 30 wierszy),
+                // a przy wybranym „TRIG IN 1 · head" interesuje tylko ta strefa.
+                if !polaWejscia.isEmpty {
+                    FieldSection(
+                        title: "Trigger Input — " + triggerLabel(selection.trigger),
+                        subtitle: "Global: these settings follow the pad, not the kit.",
+                        fields: polaWejscia,
+                        editor: editor,
+                        kit: selection.kit,
+                        trigger: 1,
+                        bezKontekstuWEtykietach: true
+                    )
+                }
+
+                // Reszta ustawień globalnych (nazwa backupu i niezmapowane).
+                if !polaSystemowe.isEmpty {
                     FieldSection(
                         title: "System",
-                        fields: editor.layout.globalFields,
+                        fields: polaSystemowe,
                         editor: editor,
                         kit: selection.kit,
                         trigger: 1
@@ -230,6 +247,24 @@ struct KitDetailView: View {
             }
             .padding(20)
             .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    /// Ustawienia wejścia dla wybranej strefy: pola triggera (`trigset.N.`)
+    /// oraz pola jego gniazda (`jack.J.` — Input, Rim Gain, H/R Adjust, wspólne
+    /// dla head i rim jednego gniazda).
+    private var polaWejscia: [FieldSpec] {
+        let trigger = selection.trigger
+        let gniazdo = (trigger - 1) / 2 + 1
+        let wlasne = editor.layout.globalFields.filter { $0.id.hasPrefix("trigset.\(trigger).") }
+        let gniazda = editor.layout.globalFields.filter { $0.id.hasPrefix("jack.\(gniazdo).") }
+        return gniazda + wlasne
+    }
+
+    /// Pola globalne, które nie należą do żadnej strefy.
+    private var polaSystemowe: [FieldSpec] {
+        editor.layout.globalFields.filter {
+            !$0.id.hasPrefix("trigset.") && !$0.id.hasPrefix("jack.")
         }
     }
 
@@ -297,15 +332,27 @@ struct NotMappedNotice: View {
 struct FieldSection: View {
 
     let title: String
+    var subtitle: String?
     let fields: [FieldSpec]
     @ObservedObject var editor: KitEditor
     let kit: Int
     let trigger: Int
 
+    /// Gdy nagłówek sekcji już mówi, której strefy dotyczy, etykiety typu
+    /// „Sensitivity — TRIG IN 1 head" skracamy do „Sensitivity".
+    var bezKontekstuWEtykietach = false
+
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text(title)
-                .font(.headline)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.title2.weight(.semibold))
+                if let subtitle {
+                    Text(subtitle)
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                }
+            }
 
             VStack(spacing: 0) {
                 ForEach(Array(fields.enumerated()), id: \.element.id) { index, field in
@@ -317,14 +364,22 @@ struct FieldSection: View {
                     // stratą: zmiana numeru kitu albo triggera kasowała wiersz
                     // i budowała go od zera, a pod spodem suwak i stepper to
                     // widoki AppKit — ich tworzenie nie jest darmowe.
-                    FieldRow(field: field, editor: editor, kit: kit, trigger: trigger)
+                    FieldRow(field: field, editor: editor, kit: kit, trigger: trigger,
+                             labelOverride: bezKontekstuWEtykietach
+                                ? krotkaEtykieta(field.label) : nil)
                         .id(field.encoding.isTextual
                             ? "\(field.id)#\(kit)#\(trigger)"
                             : field.id)
                 }
             }
             .background(Color(nsColor: .controlBackgroundColor),
-                        in: RoundedRectangle(cornerRadius: 8))
+                        in: RoundedRectangle(cornerRadius: 10))
         }
+    }
+
+    /// „Sensitivity — TRIG IN 1 head" -> „Sensitivity".
+    private func krotkaEtykieta(_ etykieta: String) -> String {
+        guard let zakres = etykieta.range(of: " — ") else { return etykieta }
+        return String(etykieta[..<zakres.lowerBound])
     }
 }

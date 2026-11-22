@@ -237,3 +237,54 @@ enum FieldValue: Equatable, CustomStringConvertible {
         return nil
     }
 }
+
+// MARK: - Odczyt wartości wpisanej z klawiatury
+
+extension FieldDisplay {
+
+    /// Zamienia tekst wpisany przez użytkownika na wartość pola — odwrotność
+    /// `text(for:)`. Przyjmuje to, co pokazuje moduł („R15", „CENTER",
+    /// „300.0 ms", „OFF"), a także gołe liczby.
+    ///
+    /// Zwraca `nil`, jeśli tekstu nie da się odczytać JEDNOZNACZNIE. Nie ma tu
+    /// żadnego zaokrąglania: „0.15 ms" przy kroku 0,1 ms to błąd, a nie 0,2 ms.
+    /// Ta sama zasada co przy zapisie do pliku — nigdy nie poprawiamy po cichu
+    /// tego, co użytkownik wpisał.
+    func parse(_ tekst: String) -> Int? {
+        let t = tekst.trimmingCharacters(in: .whitespaces).uppercased()
+        guard !t.isEmpty else { return nil }
+
+        switch self {
+        case .plain:
+            return Int(t)
+
+        case .panLeftRight:
+            if t == "C" || t == "CENTER" || t == "CENTRE" { return 0 }
+            if t.hasPrefix("L"), let n = Int(t.dropFirst()), n >= 0 { return -n }
+            if t.hasPrefix("R"), let n = Int(t.dropFirst()), n >= 0 { return n }
+            return Int(t)
+
+        case .offWhenNegative:
+            if t == "OFF" { return -1 }
+            return Int(t)
+
+        case .scaled(let divisor, _, let unit):
+            guard divisor > 0 else { return Int(t) }
+            var liczba = t
+            let jednostka = unit.uppercased()
+            if !jednostka.isEmpty, liczba.hasSuffix(jednostka) {
+                liczba = String(liczba.dropLast(jednostka.count))
+            }
+            liczba = liczba.trimmingCharacters(in: .whitespaces)
+                .replacingOccurrences(of: ",", with: ".")
+            guard let wartosc = Double(liczba), wartosc.isFinite else { return nil }
+            let surowa = wartosc * Double(divisor)
+            // Bez tego „1e300" wywróciłoby program przy zamianie na Int.
+            guard abs(surowa) < 1_000_000_000 else { return nil }
+            let zaokraglona = surowa.rounded()
+            // Wartość między krokami — odmowa, nie zaokrąglenie.
+            guard abs(surowa - zaokraglona) < 1e-6 else { return nil }
+            return Int(zaokraglona)
+        }
+    }
+}

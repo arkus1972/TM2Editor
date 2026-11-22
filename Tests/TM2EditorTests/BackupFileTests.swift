@@ -369,10 +369,12 @@ final class BackupFileTests: XCTestCase {
             (0x02, "sensitivity", 1...32),
             (0x03, "threshold", 0...31),
             (0x04, "curve", 0...6),
-            (0x06, "rimGain", 1...16),
-            // H/R Adjust siedzi pod +0x08, a nie +0x07: tak powiedział odczyt
-            // z wyświetlacza (80 przy surowym 80), a nie kolejność menu.
-            (0x08, "hrAdjust", 20...80),
+            // Retrig Cancel pod +0x06, skala 1:1, zakres 1…16. Wcześniej
+            // przypisany do +0x05 i uznany za nieliniowy — obalił to test,
+            // w którym zmienił się tylko ten jeden parametr.
+            (0x06, "retrigCancel", 1...16),
+            // XTLK Cancel pod +0x08, w procentach. Wcześniej był tu H/R Adjust.
+            (0x08, "xtlkCancel", 20...80),
         ]
 
         for numer in 1...4 {
@@ -405,32 +407,23 @@ final class BackupFileTests: XCTestCase {
         }
     }
 
-    /// Retrig Cancel też zostaje poza edycją, ale z innego powodu niż Type:
-    /// wyświetlacz pokazał 16 przy surowym 40 i 1 przy surowym 16, więc
-    /// 15 kroków na ekranie rozkłada się na 24 w pliku. Skala nie jest
-    /// liniowa, a wpisanie wartości spoza tablicy modułu dałoby stan,
-    /// którego sprzęt sam nigdy by nie ustawił.
-    func testRetrigCancelIsDeliberatelyNotEditable() {
+    /// Rim Gain i H/R Adjust zostają NIEZMAPOWANE i to jest decyzja, nie
+    /// zaniedbanie. Przy maksimum oba dawały w pliku 80 (Rim Gain 8.0 przy
+    /// dzielniku 10, H/R Adjust 80 wprost), więc z samych skrajności nie da
+    /// się ich rozróżnić — a zgadywanie przy tym rekordzie zdążyło się już
+    /// raz zemścić. Rozstrzygnie pomiar, w którym zmienia się tylko jeden.
+    func testRimGainAndHRAdjustStayUnmappedUntilToldApart() {
         let layout = BackupLayout.mapped2026_09_02
         for numer in 1...4 {
             XCTAssertNil(
-                layout.globalFields.first(where: { $0.id == "trigset.\(numer).retrigCancel" }),
-                "Retrig Cancel nie może być edytowalny, dopóki nie znamy"
-                    + " tablicy przeliczeń.")
+                layout.globalFields.first(where: { $0.id == "trigset.\(numer).rimGain" }),
+                "Rim Gain nie może być zmapowany, dopóki nie odróżnimy go"
+                    + " od H/R Adjust.")
+            XCTAssertNil(
+                layout.globalFields.first(where: { $0.id == "trigset.\(numer).hrAdjust" }),
+                "H/R Adjust nie może być zmapowany, dopóki nie odróżnimy go"
+                    + " od Rim Gain.")
         }
-    }
-
-    /// Rim Gain pokazuje połowę wartości surowej. Zmierzone: raw 16 to „8.0”
-    /// na wyświetlaczu modułu.
-    func testRimGainIsShownAsHalfOfRawValue() {
-        let layout = BackupLayout.mapped2026_09_02
-        guard let pole = layout.globalFields.first(where: { $0.id == "trigset.1.rimGain" }) else {
-            XCTFail("Brak pola trigset.1.rimgain.")
-            return
-        }
-        XCTAssertEqual(pole.display, .scaled(divisor: 2, fractionDigits: 1, unit: ""))
-        XCTAssertEqual(pole.display?.text(for: 16), "8.0")
-        XCTAssertEqual(pole.display?.text(for: 1), "0.5")
     }
 
     /// Pusta jednostka nie zostawia wiszącej spacji na końcu wartości.

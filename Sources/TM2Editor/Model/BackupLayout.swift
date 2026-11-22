@@ -390,82 +390,43 @@ extension BackupLayout {
         // pierwszego rekordu — pozostałe trzy rekordy nie drgnęły, co
         // potwierdza i granice rekordu, i to, że ustawienia są per trigger.
         //
-        // Odczyty z wyświetlacza modułu (Arek, przy ustawieniu na maksimum)
-        // pozwoliły dopasować skale i OBALIŁY pierwotne przypisanie H/R Adjust,
-        // które zgadywałem z kolejności menu:
+        // Mapa rekordu po TRZECH seriach pomiarów. Trzecia (plik
+        // `trzy-drobiazgi.bin`: zmieniony jeden parametr naraz) obaliła dwa
+        // przypisania z serii drugiej — i to jest tu najważniejsza lekcja.
         //
-        //   +0x00  Input (HEAD&RIM / PADx2)   nietknięte w teście
+        // Pułapka była taka: przy maksimum wyświetlacz pokazywał
+        // „Retrig Cancel 16" i „Rim Gain 8.0", a w pliku stały obok siebie
+        // bajty 40 i 16. Przypisanie 16 do Rim Gain (skala ÷2) i 40 do Retrig
+        // Cancel wyglądało spójnie i było BŁĘDNE. Test, w którym zmienił się
+        // JEDEN parametr, pokazał co innego: ustawienie Retrig Cancel na 8
+        // zmieniło bajt +0x06 z 16 na 8, czyli to Retrig Cancel, skala 1:1,
+        // zakres 1…16 — dokładnie taki, jaki ten parametr ma u Rolanda.
+        //
+        //   +0x00  Input (HEAD&RIM / PADx2)   nietknięte we wszystkich testach
         //   +0x01  Type            raw 1…31   <- NIE do edycji, patrz niżej
-        //   +0x02  Sensitivity     raw 1…32   wyświetlacz 1:1
-        //   +0x03  Threshold       raw 0…31   wyświetlacz 1:1 (31 = 31)
-        //   +0x04  Curve           raw 0…6    raw 6 = LOUD2, czyli ostatnia
-        //   +0x05  Retrig Cancel   raw 16…40  <- NIE do edycji: skala nieliniowa
-        //   +0x06  Rim Gain        raw 1…16   wyświetlacz raw/2 (16 = „8.0")
-        //   +0x07  ?               zmienia się RAZEM Z TYPE, nie ruszany ręcznie
-        //   +0x08  H/R Adjust      raw 20…80  wyświetlacz 1:1 (80 = 80)
-        //   +0x09  +0x0A           raw 0…80   XTLK Cancel i Noise Cancel,
+        //   +0x02  Sensitivity     raw 1…32   1:1
+        //   +0x03  Threshold       raw 0…31   1:1 (wyświetlacz 31 = raw 31)
+        //   +0x04  Curve           raw 0…6    raw 6 = LOUD2, ostatnia na liście
+        //   +0x05  ?               zmienia się RAZEM Z TYPE, nie ustawiany ręcznie
+        //   +0x06  Retrig Cancel   raw 1…16   1:1, dwa zgodne punkty (16 i 8)
+        //   +0x07  ?               zmienia się RAZEM Z TYPE, nie ustawiany ręcznie
+        //   +0x08  XTLK Cancel     raw 20…80  1:1, w procentach (80% i 40%)
+        //   +0x09  +0x0A           raw 0…80   Rim Gain i H/R Adjust,
         //                                     kolejność nierozstrzygnięta
-        //   +0x0B  ?               w bazie 2, w obu testach 0
+        //   +0x0B  ?               w bazie 2, we wszystkich testach 0
         //
-        // Dwa pola świadomie zostają poza edycją — `Type` i `Retrig Cancel`.
-        // Przy Retrig Cancel wyświetlacz pokazał 16 przy surowym 40, a 1 przy
-        // surowym 16: 15 kroków na wyświetlaczu rozkłada się na 24 kroki
-        // w pliku, więc skala nie jest liniowa i najpewniej jest tablicą
-        // czasów. Wpisanie wartości spoza tej tablicy dałoby w module stan,
-        // którego sam nigdy by nie ustawił.
+        // Rim Gain i H/R Adjust zostają NIEZMAPOWANE. Przy maksimum oba
+        // pokazywały wartości dające raw 80 (8.0 przy dzielniku 10 oraz 80
+        // wprost), więc z samych skrajności nie da się ich rozróżnić —
+        // a zgadywanie przy tym rekordzie zdążyło się już raz zemścić.
         //
-        // `Type` zostaje świadomie POZA edycją. Instrukcja mówi, a Arek
-        // potwierdził z własnej praktyki, że zmiana typu pada przestawia
-        // wartości pozostałych parametrów. Moduł robi to sam przy zmianie
-        // w menu; edytor pliku nie ma skąd wiedzieć, jakie są domyślne
-        // wartości dla danego typu, więc zapisanie samego `Type` zostawiłoby
-        // w pliku komplet parametrów od poprzedniego pada. Inspektor heks
-        // ten bajt pokazuje — do edycji wróci, kiedy poznamy tablicę
-        // domyślnych wartości dla każdego typu.
-        //
-        // Z tego samego powodu zakresy niżej są OSTROŻNE: zmierzono je przy
-        // dwóch różnych typach pada (31 w teście maksimum, 1 w minimum), więc
-        // nie da się rozdzielić „maksimum parametru" od „wartości domyślnej
-        // dla tego typu". Dlatego dolne i górne granice są brane wprost
-        // z pomiaru, bez zaokrąglania w stronę ładnych liczb.
-        // Nazwa backupu — ta, którą moduł pokazuje na liście przy BACKUP LOAD.
-        //
-        // Wyszła z oglądania nagłówka, nie z pomiaru różnicowego. Po magicznym
-        // „TM-2" stoi znacznik „BK", a od 0x0A idzie osiem znaków ASCII
-        // dopełnionych spacjami. Potwierdzenie przyszło z dwóch stron: bajt
-        // 0x0A był jednym z dwóch nierozpoznanych w całym pliku (0x42 „B"
-        // w jednym backupie, 0x43 „C" w innym — jedno naciśnięcie [+] przy
-        // zmianie nazwy), a Arek potwierdził, że nazwę backupu zmieniał.
-        //
-        // Dopełnienie spacją zgadza się z tym, jak moduł trzyma krótkie nazwy
-        // kitów (sprawdzone: „Cowbells   " ma 0x20 na końcu, nie zera), więc
-        // nasz zapis pól ASCII robi dokładnie to samo co sprzęt.
-        //
-        // DŁUGOŚĆ 8 JEST HIPOTEZĄ. Po ósmym znaku stoją dwa bajty 0x20,
-        // a potem zera — czyli pole może być dłuższe, a te spacje to już
-        // dopełnienie czegoś innego. Dlatego trzymamy ostrożniejszą wartość:
-        // za krótkie pole odmówi dłuższej nazwy (błąd widoczny, odwracalny),
-        // za długie wpisałoby znaki w sąsiednie, nieznane bajty nagłówka.
-        layout.globalFields.append(
-            FieldSpec(
-                id: "file.backupName",
-                label: "Backup Name",
-                scope: .global,
-                group: .system,
-                offset: 0x0A,
-                encoding: .ascii(length: 8),
-                note: "Nazwa, pod którą moduł pokazuje ten backup na liście"
-                    + " BACKUP LOAD. Osiem znaków ASCII, dopełnianych spacjami."
-                    + " Długość przyjęta ostrożnie — patrz komentarz w kodzie."
-            )
-        )
-
-        // Wskaźnik bieżącego kitu. Zmierzony 2026-09-04: w teście zrobionym
-        // na kicie 40 ten bajt pokazał 0x27, czyli 39 — numer kitu liczony
-        // od zera. Wcześniejsze próbki (0 i 1) nie pozwalały tego odróżnić
-        // od flagi albo bitmapy.
-        layout.currentKitPointerOffset = 0x36
-
+        // `Type` zostaje poza edycją: instrukcja mówi, a Arek potwierdził
+        // z praktyki, że zmiana typu pada przestawia wartości pozostałych
+        // parametrów. Widać to zresztą wprost w pliku — bajty +0x05 i +0x07
+        // ruszają się wyłącznie razem z Type i nikt ich ręcznie nie ustawia.
+        // Edytor pliku nie zna tablicy wartości domyślnych dla każdego typu,
+        // więc zapisanie samego `Type` zostawiłoby komplet parametrów od
+        // poprzedniego pada.
         let trigUstawieniaOd = 0x40
         let trigUstawieniaKrok = 15
         let nazwyTrigerow = ["TRIG IN 1 head", "TRIG IN 1 rim",
@@ -473,6 +434,8 @@ extension BackupLayout {
 
         /// Pola rekordu ustawień wejścia: offset w rekordzie, etykieta,
         /// identyfikator, etykietę, zakres, sposób wyświetlania i notatkę.
+        /// Pola rekordu ustawień wejścia: offset w rekordzie, identyfikator,
+        /// etykietę, zakres, sposób wyświetlania i notatkę.
         let polaWejscia: [(Int, String, String, Int, Int, FieldDisplay?, String)] = [
             (0x02, "sensitivity", "Sensitivity", 1, 32, nil,
              "Skala 1:1 — wyświetlacz 32 przy surowym 32. Minimum"
@@ -487,16 +450,18 @@ extension BackupLayout {
                 + " firmware ma ich więcej, a nazw dwóch środkowych nie"
                 + " znamy. Dlatego pole jest liczbą, a nie listą wyboru:"
                 + " lista z dziurami kłamałaby bardziej niż goły numer."),
-            (0x06, "rimGain", "Rim Gain", 1, 16, .scaled(divisor: 2, fractionDigits: 1, unit: ""),
-             "Wyświetlacz pokazuje połowę wartości surowej: raw 16 to „8.0”."
-                + " Zakres 1…16 w pliku, czyli 0,5…8,0 na ekranie. Dotyczy"
-                + " obręczy, ale w pliku siedzi w rekordzie konkretnego"
-                + " triggera, nie gniazda."),
-            (0x08, "hrAdjust", "H/R Adjust", 20, 80, nil,
-             "Skala 1:1 — wyświetlacz 80 przy surowym 80. To NIE jest +0x07,"
-                + " jak zgadywałem z kolejności menu: tam maksimum nie ruszyło"
-                + " bajtu wcale. Odczyt z wyświetlacza przypisał ten parametr"
-                + " tutaj. Minimum surowe 20."),
+            (0x06, "retrigCancel", "Retrig Cancel", 1, 16, nil,
+             "Skala 1:1, dwa zgodne punkty: wyświetlacz 16 przy surowym 16"
+                + " i wyświetlacz 8 przy surowym 8. Zakres 1…16 — typowy dla"
+                + " tego parametru u Rolanda. KOREKTA: wcześniej pole było"
+                + " przypisane do +0x05 i uznane za nieliniowe; to był błąd"
+                + " wzięty z serii, w której zmieniało się wszystko naraz."),
+            (0x08, "xtlkCancel", "XTLK Cancel", 20, 80, nil,
+             "Tłumienie przesłuchu, w procentach. Skala 1:1, dwa zgodne"
+                + " punkty: 80% przy surowym 80 i 40% przy surowym 40."
+                + " Minimum surowe 20. KOREKTA: wcześniej ten bajt był"
+                + " przypisany do H/R Adjust — obaliło to ustawienie samego"
+                + " XTLK Cancel, które zmieniło dokładnie ten bajt."),
         ]
 
         for (numer, nazwa) in nazwyTrigerow.enumerated() {
@@ -790,6 +755,24 @@ extension BackupLayout {
                     + " Wyjaśnia też starą zagadkę: wartość 1 pod tym"
                     + " offsetem w archiwalnym `b1.bin` to po prostu LOUD 1,"
                     + " a nie ślad nieznanego parametru."
+            )
+        )
+
+        layout.triggerFields.append(
+            FieldSpec(
+                id: "trig.effectSend",
+                label: "Effect Send",
+                scope: .trigger,
+                group: .sound,
+                offset: 20,                 // +0x14
+                encoding: .boolean,
+                note: "Czy ten pad idzie przez efekt kitu. Zmierzone"
+                    + " `trzy-drobiazgi.bin`: przestawienie na OFF zmieniło"
+                    + " ten bajt z 1 na 0, a sąsiedni +0x12 został na 1."
+                    + " Pod +0x12 siedzi najpewniej Mono/Poly (w chwili"
+                    + " pomiaru ustawione na MONO), ale to wniosek"
+                    + " z wykluczenia, nie pomiar — dlatego tamto pole"
+                    + " zostaje niezmapowane."
             )
         )
 

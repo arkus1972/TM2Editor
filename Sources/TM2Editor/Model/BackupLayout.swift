@@ -553,9 +553,13 @@ extension BackupLayout {
         // Po wpadce z Mono/Poly (wniosek z wykluczenia okazał się fałszywy)
         // mapujemy tylko to, co zmierzone wprost.
         //
-        // +0x09 to H/R Adjust ALBO Noise Cancel — oba pokazują "--" przy
-        // PADx2, więc kandydatów jest dwóch, a pomiar był jeden. Zostaje bez
-        // adresu.
+        // H/R Adjust pod +0x09 — potwierdzony ODCZYTEM z wyświetlacza, a nie
+        // wykluczeniem: bajt pokazywał 31 i moduł pokazał „H/R Adjust 31".
+        // Kusiło, żeby przypisać go wcześniej, z wykluczenia (Rim Gain był już
+        // zmierzony pod +0x0A), ale w grze był też Noise Cancel — on również
+        // znika przy PADx2. Rozstrzygnęło dopiero porównanie z wyświetlaczem.
+        //
+        // Noise Cancel nadal bez adresu.
         let gniazda: [(rekord: Int, nazwa: String)] = [(0, "TRIG IN 1"), (2, "TRIG IN 2")]
         for (rekord, nazwa) in gniazda {
             let baza = trigUstawieniaOd + rekord * trigUstawieniaKrok
@@ -594,6 +598,22 @@ extension BackupLayout {
                         + " przypisane do +0x06 ze skalą ÷2 — tamto okazało"
                         + " się Retrig Cancel.",
                     display: .scaled(divisor: 10, fractionDigits: 1, unit: "")
+                )
+            )
+
+            layout.globalFields.append(
+                FieldSpec(
+                    id: "jack.\(numer).hrAdjust",
+                    label: "H/R Adjust — \(nazwa)",
+                    scope: .global,
+                    group: .triggerInput,
+                    offset: baza + 0x09,
+                    encoding: .unsigned(min: 0, max: 80),
+                    note: "Jak łatwo pad rozróżnia uderzenie w naciąg od"
+                        + " uderzenia w obręcz. Skala 1:1 — potwierdzone"
+                        + " odczytem: wyświetlacz 31 przy surowym 31. Zakres"
+                        + " 0…80 z serii max/min. Działa tylko przy"
+                        + " Input = HEAD&RIM."
                 )
             )
         }

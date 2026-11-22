@@ -435,13 +435,20 @@ final class BackupFileTests: XCTestCase {
         XCTAssertNil(pole("trigset.2.rimGain"))
     }
 
-    /// H/R Adjust zostaje bez adresu. Kandydat +0x09 pasuje równie dobrze
-    /// do Noise Cancel — oba znikają przy PADx2 — a wniosek z wykluczenia
-    /// już raz w tym projekcie okazał się fałszywy (Mono/Poly).
-    func testHRAdjustStaysUnmappedUntilMeasuredDirectly() {
+    /// H/R Adjust pod +0x09 — potwierdzony odczytem z wyświetlacza (31 = 31),
+    /// a nie wykluczeniem. Noise Cancel dalej bez adresu.
+    func testHRAdjustConfirmedByDisplayNoiseCancelStillUnknown() {
         let layout = BackupLayout.mapped2026_09_02
-        XCTAssertNil(layout.globalFields.first { $0.id.lowercased().contains("hradjust") })
-        XCTAssertNil(layout.globalFields.first { $0.id.lowercased().contains("noisecancel") })
+        let pole = layout.globalFields.first { $0.id == "jack.1.hrAdjust" }
+        XCTAssertEqual(pole?.offset, 0x40 + 0x09)
+        XCTAssertEqual(pole?.encoding.numericRange, 0...80)
+        XCTAssertNil(pole?.display, "Skala 1:1, bez przeliczania.")
+
+        XCTAssertEqual(layout.globalFields.first { $0.id == "jack.2.hrAdjust" }?.offset,
+                       0x40 + 2 * 15 + 0x09)
+
+        XCTAssertNil(layout.globalFields.first { $0.id.lowercased().contains("noisecancel") },
+                     "Noise Cancel nie ma jeszcze adresu.")
     }
 
     /// Pusta jednostka nie zostawia wiszącej spacji na końcu wartości.

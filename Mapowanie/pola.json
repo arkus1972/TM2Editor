@@ -237,15 +237,15 @@
       "opis": "TRIG IN 1 head. XTLK Cancel w procentach. Skala 1:1, DWA zgodne punkty: 80% i 40%. KOREKTA: wczesniej przypisane tu H/R Adjust."
     },
     {
-      "nazwa": "trigset.1.hr_adjust_lub_noise_cancel",
+      "nazwa": "trigset.1.hr_adjust",
       "offset": 73,
       "dlugosc": 1,
-      "kodowanie": "uint8",
+      "kodowanie": "uint8_wprost",
       "zakres": [
         0,
         80
       ],
-      "opis": "TRIG IN 1 head. H/R Adjust ALBO Noise Cancel -- oba znikaja przy PADx2. Rim Gain wykluczony pomiarem (siedzi pod +0x0A). Nie przyjmujemy wniosku z wykluczenia, bo przy Mono/Poly okazal sie falszywy."
+      "opis": "TRIG IN 1 head. H/R Adjust, pole GNIAZDA. Skala 1:1 -- POTWIERDZONE ODCZYTEM: wyswietlacz 31 przy surowym 31. Zakres 0..80 z serii max/min. Uwaga: w poly.bin ten bajt zmienil sie 20 -> 31 bez wiedzy Arka (drugi taki przypadek po Sensitivity 17 -> 32)."
     },
     {
       "nazwa": "trigset.1.rim_gain",
@@ -477,15 +477,15 @@
       "opis": "TRIG IN 2 head. XTLK Cancel w procentach. Skala 1:1, DWA zgodne punkty: 80% i 40%. KOREKTA: wczesniej przypisane tu H/R Adjust."
     },
     {
-      "nazwa": "trigset.3.hr_adjust_lub_noise_cancel",
+      "nazwa": "trigset.3.hr_adjust",
       "offset": 103,
       "dlugosc": 1,
-      "kodowanie": "uint8",
+      "kodowanie": "uint8_wprost",
       "zakres": [
         0,
         80
       ],
-      "opis": "TRIG IN 2 head. H/R Adjust ALBO Noise Cancel -- oba znikaja przy PADx2. Rim Gain wykluczony pomiarem (siedzi pod +0x0A). Nie przyjmujemy wniosku z wykluczenia, bo przy Mono/Poly okazal sie falszywy."
+      "opis": "TRIG IN 2 head. H/R Adjust, pole GNIAZDA. Skala 1:1 -- POTWIERDZONE ODCZYTEM: wyswietlacz 31 przy surowym 31. Zakres 0..80 z serii max/min. Uwaga: w poly.bin ten bajt zmienil sie 20 -> 31 bez wiedzy Arka (drugi taki przypadek po Sensitivity 17 -> 32)."
     },
     {
       "nazwa": "trigset.3.rim_gain",
@@ -627,7 +627,8 @@
     }
   ],
   "otwartePytania": [
-    "Co siedzi pod +0x09 rekordu HEAD: H/R Adjust czy Noise Cancel. Rozstrzygnie backup ze zmiana TYLKO H/R Adjust (przy Input = HEAD&RIM). Gdzie jest drugi z nich -- nieznane.",
+    "Gdzie jest Noise Cancel. Przy Type = PAD2 pokazuje '--' NAWET przy Input = HEAD&RIM -- czyli jego dostepnosc zalezy od typu pada, a nie od Input. Pomiar wymaga typu pada, ktory go udostepnia: przestawic Type (backup A), potem zmienic tylko Noise Cancel (backup B). Kandydat: +0x0B rekordu HEAD (w bazie 2, we wszystkich testach 0) -- NIESPRAWDZONE.",
+    "Czy modul zmienia cos w rekordzie wejscia sam. Dwa bajty zmienily sie bez wiedzy Arka (Sensitivity 17 -> 32 w trzy-drobiazgi.bin, H/R Adjust 20 -> 31 w poly.bin). Rozstrzygnie para pustych backupow bez dotykania czegokolwiek.",
     "Co oznaczaja bajty +0x00 i +0x0A w rekordach RIM (2 i 4) -- maja wartosci, ale nie byly mierzone.",
     "Czym sa bajty +0x05 i +0x07 rekordu wejscia -- oba zmieniaja sie wylacznie razem z Type.",
     "Bajt +0x0B rekordu wejscia: w bazie 2, we wszystkich testach 0.",

@@ -4,6 +4,7 @@
 <przypisanie> layout.triggerBlockOrigin
 <przypisanie> layout.triggerStride
 file.backupName
+jack.\(numer).hrAdjust
 jack.\(numer).input
 jack.\(numer).rimGain
 kit.name

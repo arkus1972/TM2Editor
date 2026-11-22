@@ -17,7 +17,6 @@ trig.instrument
 trig.level
 trig.loop
 trig.maskTime
-trig.monoPoly
 trig.muteGroup
 trig.note
 trig.offset

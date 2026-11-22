@@ -114,13 +114,6 @@
       "dlugosc": 2,
       "kodowanie": "uint16le_bool",
       "opis": "EffectSend: czy pad idzie przez efekt kitu. Zmierzone: OFF zmienilo ten bajt z 1 na 0. Sasiedni +0x12 zostal na 1 -- tam najpewniej Mono/Poly, ale to wniosek z wykluczenia, nie pomiar."
-    },
-    {
-      "nazwa": "trig.mono_poly",
-      "offset": 18,
-      "dlugosc": 2,
-      "kodowanie": "uint16le_lista",
-      "opis": "Mono/Poly. 0 = POLY, 1 = MONO. Zmierzone seria max2/min2: bajt poszedl z 1 na 0 przy zejsciu wszystkiego na minimum. UWAGA: notatki podaja MONO w obu plikach -- do potwierdzenia."
     }
   ],
   "polaGlobalne": [
@@ -150,7 +143,7 @@
       "offset": 64,
       "dlugosc": 1,
       "kodowanie": "uint8",
-      "opis": "TRIG IN 1 head. Input: 0 = HEAD&RIM, 1 = PADx2. Zmierzone posrednio seria max2/min2: po przestawieniu wejscia na PADx2 bajt wskoczyl z 0 na 1, a na wyswietlaczu Rim Gain, H/R Adjust i Noise Cancel pokazaly '--' -- czyli przy tym trybie te parametry nie istnieja.",
+      "opis": "TRIG IN 1 head. Input: 0 = HEAD&RIM, 1 = PADx2. Zmierzone posrednio seria max2/min2: po przestawieniu wejscia na PADx2 bajt wskoczyl z 0 na 1, a na wyswietlaczu Rim Gain, H/R Adjust i Noise Cancel pokazaly '--' -- czyli przy tym trybie te parametry nie istnieja. POTWIERDZONE WPROST: przy wartosci 1 wyswietlacz pokazuje PADx2.",
       "zakres": [
         0,
         1
@@ -270,7 +263,7 @@
       "offset": 79,
       "dlugosc": 1,
       "kodowanie": "uint8",
-      "opis": "TRIG IN 1 rim. Input: 0 = HEAD&RIM, 1 = PADx2. Zmierzone posrednio seria max2/min2: po przestawieniu wejscia na PADx2 bajt wskoczyl z 0 na 1, a na wyswietlaczu Rim Gain, H/R Adjust i Noise Cancel pokazaly '--' -- czyli przy tym trybie te parametry nie istnieja.",
+      "opis": "TRIG IN 1 rim. Input: 0 = HEAD&RIM, 1 = PADx2. Zmierzone posrednio seria max2/min2: po przestawieniu wejscia na PADx2 bajt wskoczyl z 0 na 1, a na wyswietlaczu Rim Gain, H/R Adjust i Noise Cancel pokazaly '--' -- czyli przy tym trybie te parametry nie istnieja. POTWIERDZONE WPROST: przy wartosci 1 wyswietlacz pokazuje PADx2.",
       "zakres": [
         0,
         1
@@ -390,7 +383,7 @@
       "offset": 94,
       "dlugosc": 1,
       "kodowanie": "uint8",
-      "opis": "TRIG IN 2 head. Input: 0 = HEAD&RIM, 1 = PADx2. Zmierzone posrednio seria max2/min2: po przestawieniu wejscia na PADx2 bajt wskoczyl z 0 na 1, a na wyswietlaczu Rim Gain, H/R Adjust i Noise Cancel pokazaly '--' -- czyli przy tym trybie te parametry nie istnieja.",
+      "opis": "TRIG IN 2 head. Input: 0 = HEAD&RIM, 1 = PADx2. Zmierzone posrednio seria max2/min2: po przestawieniu wejscia na PADx2 bajt wskoczyl z 0 na 1, a na wyswietlaczu Rim Gain, H/R Adjust i Noise Cancel pokazaly '--' -- czyli przy tym trybie te parametry nie istnieja. POTWIERDZONE WPROST: przy wartosci 1 wyswietlacz pokazuje PADx2.",
       "zakres": [
         0,
         1
@@ -510,7 +503,7 @@
       "offset": 109,
       "dlugosc": 1,
       "kodowanie": "uint8",
-      "opis": "TRIG IN 2 rim. Input: 0 = HEAD&RIM, 1 = PADx2. Zmierzone posrednio seria max2/min2: po przestawieniu wejscia na PADx2 bajt wskoczyl z 0 na 1, a na wyswietlaczu Rim Gain, H/R Adjust i Noise Cancel pokazaly '--' -- czyli przy tym trybie te parametry nie istnieja.",
+      "opis": "TRIG IN 2 rim. Input: 0 = HEAD&RIM, 1 = PADx2. Zmierzone posrednio seria max2/min2: po przestawieniu wejscia na PADx2 bajt wskoczyl z 0 na 1, a na wyswietlaczu Rim Gain, H/R Adjust i Noise Cancel pokazaly '--' -- czyli przy tym trybie te parametry nie istnieja. POTWIERDZONE WPROST: przy wartosci 1 wyswietlacz pokazuje PADx2.",
       "zakres": [
         0,
         1
@@ -627,13 +620,14 @@
     }
   ],
   "otwartePytania": [
+    "Gdzie jest Mono/Poly. NIE pod +0x12: wyswietlacz pokazuje MONO zarowno przy 1, jak i przy 0 w tym bajcie (max2/min2), a fabryczny kit 1 ma tam 1 przy Loop OFF. Rozstrzygnie backup ze zmiana TYLKO Mono/Poly (przy Loop OFF, bo Loop ON wymusza MONO).",
     "Ktory z bajtow +0x09 / +0x0A rekordu wejscia to Rim Gain, a ktory H/R Adjust. UWAGA: przy Input = PADx2 oba pokazuja '--' i sa niedostepne, wiec pomiar wymaga przestawienia Input na HEAD&RIM.",
     "Czym sa bajty +0x05 i +0x07 rekordu wejscia -- oba zmieniaja sie wylacznie razem z Type.",
     "Bajt +0x0B rekordu wejscia: w bazie 2, we wszystkich testach 0.",
     "Nazwy typow pada (Type 1..31) i tablica wartosci domyslnych narzucanych przez kazdy typ.",
     "Nazwy dwoch brakujacych krzywych (Curve 0..6; wiemy, ze 6 = LOUD2).",
     "Pelna lista typow efektu kitu (THRU = 0, REVERB = 19) i ktore pola strefy nalezaza do ktorego typu.",
-    "Slot brzmienia: +0x02 (wszedzie 1), +0x16 (wszedzie 0xFFFF, nie drgnelo nawet przy minimach), +0x18, +0x1C..+0x28.",
+    "Slot brzmienia: +0x12 (1 -> 0 w serii max2/min2, NIE Mono/Poly -- nieznane), +0x02 (wszedzie 1), +0x16 (wszedzie 0xFFFF), +0x18, +0x1C..+0x28.",
     "Naglowek pliku: bajt 0x2C -- OSTATNI nierozpoznany w pliku.",
     "Strefa ~101 KB zer po bloku kitow.",
     "W pliku jest 100 nazw kitow, nie 99 -- dlaczego jedna wiecej?"

@@ -813,25 +813,14 @@ extension BackupLayout {
             )
         )
 
-        layout.triggerFields.append(
-            FieldSpec(
-                id: "trig.monoPoly",
-                label: "Mono / Poly",
-                scope: .trigger,
-                group: .sound,
-                offset: 18,                 // +0x12
-                encoding: .enumeration(values: ["POLY", "MONO"]),
-                note: "Zmierzone serią max2/min2: bajt poszedł z 1 na 0 przy"
-                    + " zejściu wszystkich parametrów brzmienia na minimum."
-                    + " To jedyne pole z listy parametrów instrumentu, które"
-                    + " zostało jeszcze bez adresu, a POLY jest pierwszą"
-                    + " pozycją listy, więc 0 = POLY. UWAGA: notatki Arka"
-                    + " podają MONO w obu plikach serii — albo to przeoczenie"
-                    + " przy spisywaniu, albo moduł sam przestawił ten"
-                    + " parametr. Do potwierdzenia jednym spojrzeniem"
-                    + " na wyświetlacz."
-            )
-        )
+        // Mono/Poly — CELOWO BEZ ADRESU. Przez chwilę było tu pole pod +0x12,
+        // wywnioskowane z wykluczenia: bajt zmienił się z 1 na 0 w serii
+        // max2/min2, a Mono/Poly było ostatnim parametrem instrumentu bez
+        // adresu. Obaliło to jedno spojrzenie na wyświetlacz: moduł pokazuje
+        // MONO zarówno przy 1, jak i przy 0. Do tego fabryczny kit 1 ma pod
+        // +0x12 jedynkę na wszystkich padach przy wyłączonym Loop.
+        // Czyli +0x12 to coś innego, a wniosek z wykluczenia był fałszywy —
+        // zakładał, że lista parametrów z instrukcji jest kompletna.
 
         layout.triggerFields.append(
             FieldSpec(

@@ -293,7 +293,8 @@ struct KitDetailView: View {
         let gniazdo = (trigger - 1) / 2 + 1
         let wlasne = editor.layout.globalFields.filter { $0.id.hasPrefix("trigset.\(trigger).") }
         let gniazda = editor.layout.globalFields.filter { $0.id.hasPrefix("jack.\(gniazdo).") }
-        return gniazda + wlasne
+        // Tylko to, co moduł pokazuje przy obecnym trybie gniazda i typie pada.
+        return (gniazda + wlasne).filter { editor.czyModulPokazujePole($0) }
     }
 
     /// Podpis sekcji ustawień wejścia. Drugi rekord każdego gniazda to NIE

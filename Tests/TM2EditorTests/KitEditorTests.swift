@@ -507,4 +507,47 @@ final class KitEditorTests: XCTestCase {
         XCTAssertFalse(editor.setPadType(try XCTUnwrap(TypyPadow.typ(kod: 1)), rekord: 1))
         XCTAssertTrue(editor.changes.isEmpty)
     }
+
+    // MARK: - Pola widoczne tak jak na module
+
+    private func editorZGniazdem(input: UInt8, typ: UInt8) -> KitEditor {
+        var bytes = [UInt8](repeating: 0, count: 124_748)
+        bytes[0x40] = input
+        bytes[0x41] = typ
+        return KitEditor(file: BackupFile(bytes: bytes, layout: .mapped2026_09_02),
+                         log: EditorLog())
+    }
+
+    private func pole(_ editor: KitEditor, _ id: String) throws -> FieldSpec {
+        try XCTUnwrap(editor.layout.globalFields.first { $0.id == id })
+    }
+
+    /// Tam, gdzie moduł pokazuje „--", edytor pola nie pokazuje. Reguły tylko
+    /// zmierzone: Rim Gain / H/R Adjust znikają przy PADx2, Noise Cancel jest
+    /// wyłącznie przy HEAD&RIM i typach RT-30K / RT-30HR.
+    func testPolaGniazdaWidoczneTakJakNaModule() throws {
+        // HEAD&RIM + RT-30K: wszystko widać.
+        var e = editorZGniazdem(input: 0, typ: 32)
+        XCTAssertTrue(e.czyModulPokazujePole(try pole(e, "jack.1.noiseCancel")))
+        XCTAssertTrue(e.czyModulPokazujePole(try pole(e, "jack.1.rimGain")))
+        XCTAssertTrue(e.czyModulPokazujePole(try pole(e, "jack.1.hrAdjust")))
+
+        // HEAD&RIM + RT-30HR: Noise Cancel też jest.
+        e = editorZGniazdem(input: 0, typ: 33)
+        XCTAssertTrue(e.czyModulPokazujePole(try pole(e, "jack.1.noiseCancel")))
+
+        // HEAD&RIM + PAD2: Noise Cancel znika, Rim Gain zostaje.
+        e = editorZGniazdem(input: 0, typ: 31)
+        XCTAssertFalse(e.czyModulPokazujePole(try pole(e, "jack.1.noiseCancel")))
+        XCTAssertTrue(e.czyModulPokazujePole(try pole(e, "jack.1.rimGain")))
+
+        // PADx2 + RT-30K: moduł pokazuje „--" przy wszystkich trzech.
+        e = editorZGniazdem(input: 1, typ: 32)
+        XCTAssertFalse(e.czyModulPokazujePole(try pole(e, "jack.1.noiseCancel")))
+        XCTAssertFalse(e.czyModulPokazujePole(try pole(e, "jack.1.rimGain")))
+        XCTAssertFalse(e.czyModulPokazujePole(try pole(e, "jack.1.hrAdjust")))
+
+        // Pola spoza gniazda zawsze widoczne.
+        XCTAssertTrue(e.czyModulPokazujePole(try pole(e, "trigset.1.sensitivity")))
+    }
 }

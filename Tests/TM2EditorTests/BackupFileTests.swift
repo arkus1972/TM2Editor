@@ -643,6 +643,7 @@ final class BackupFileTests: XCTestCase {
             (.plain, 0...127),
             (.panLeftRight, -15...15),
             (.offWhenNegative, -1...127),
+            (.offWhenZero, 0...5),
             (.scaled(divisor: 10, fractionDigits: 1, unit: "ms"), 0...3000),
             (.scaled(divisor: 10, fractionDigits: 1, unit: ""), 0...80),
         ]
@@ -718,6 +719,18 @@ final class BackupFileTests: XCTestCase {
     func testOnlyRT30KAndRT30HRHaveNoiseCancel() {
         let zNoise = TypyPadow.wszystkie.filter { $0.noiseCancel != 0 }.map(\.nazwa).sorted()
         XCTAssertEqual(zNoise, ["RT-30HR", "RT-30K"])
+    }
+
+    /// Noise Cancel: +0x0B rekordu głównego gniazda, skala 1:1, OFF…5.
+    func testNoiseCancelField() {
+        let layout = BackupLayout.mapped2026_09_02
+        let pole = layout.globalFields.first { $0.id == "jack.1.noiseCancel" }
+        XCTAssertEqual(pole?.offset, 0x40 + 0x0B)
+        XCTAssertEqual(pole?.encoding.numericRange, 0...5)
+        XCTAssertEqual(pole?.display?.text(for: 0), "OFF")
+        XCTAssertEqual(pole?.display?.text(for: 2), "2")
+        XCTAssertEqual(layout.globalFields.first { $0.id == "jack.2.noiseCancel" }?.offset,
+                       0x40 + 2 * 15 + 0x0B)
     }
 
     /// `unmappedTM2` ma zostać nietknięty — zależą od niego pozostałe testy

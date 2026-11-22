@@ -140,6 +140,9 @@ enum FieldDisplay: Codable, Equatable {
     /// odczycie jednobajtowym nawet „255".
     case offWhenNegative
 
+    /// Zero to „wyłączone". Tak moduł pokazuje najniższą wartość Noise Cancel.
+    case offWhenZero
+
     /// Wartość przeskalowana w dół, z jednostką: 3000 przy dzielniku 10
     /// i jednym miejscu po przecinku daje `300.0 ms`.
     case scaled(divisor: Int, fractionDigits: Int, unit: String)
@@ -155,6 +158,9 @@ enum FieldDisplay: Codable, Equatable {
 
         case .offWhenNegative:
             return value < 0 ? "OFF" : String(value)
+
+        case .offWhenZero:
+            return value == 0 ? "OFF" : String(value)
 
         case .scaled(let divisor, let fractionDigits, let unit):
             // Dzielnik 0 byłby błędem w opisie układu, ale widok nie jest od
@@ -266,6 +272,10 @@ extension FieldDisplay {
 
         case .offWhenNegative:
             if t == "OFF" { return -1 }
+            return Int(t)
+
+        case .offWhenZero:
+            if t == "OFF" { return 0 }
             return Int(t)
 
         case .scaled(let divisor, _, let unit):

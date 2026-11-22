@@ -263,7 +263,11 @@
       "offset": 75,
       "dlugosc": 1,
       "kodowanie": "uint8_wprost",
-      "opis": "TRIG IN 1 head. Noise Cancel, pole GNIAZDA. ZMIERZONE WPROST (noise.bin): przy RT-30K wyswietlacz pokazal 2 (= bajt), po ustawieniu 5 bajt poszedl 2 -> 5. Skala 1:1. Dostepny TYLKO przy Input = HEAD&RIM i typach RT-30K / RT-30HR (jedyne z niezerowa wartoscia domyslna: 2 i 3). Zakres na module: do ustalenia."
+      "opis": "TRIG IN 1 head. Noise Cancel, pole GNIAZDA. ZMIERZONE WPROST (noise.bin): przy RT-30K wyswietlacz pokazal 2 (= bajt), po ustawieniu 5 bajt poszedl 2 -> 5. Skala 1:1. Dostepny TYLKO przy Input = HEAD&RIM i typach RT-30K / RT-30HR (jedyne z niezerowa wartoscia domyslna: 2 i 3). Zakres z wyswietlacza: OFF..5. OFF = 0 WYWNIOSKOWANE (skala 1:1 zmierzona na 2 i 5), nie zmierzone wprost.",
+      "zakres": [
+        0,
+        5
+      ]
     },
     {
       "nazwa": "trigset.2.input",
@@ -503,7 +507,11 @@
       "offset": 105,
       "dlugosc": 1,
       "kodowanie": "uint8_wprost",
-      "opis": "TRIG IN 2 head. Noise Cancel, pole GNIAZDA. ZMIERZONE WPROST (noise.bin): przy RT-30K wyswietlacz pokazal 2 (= bajt), po ustawieniu 5 bajt poszedl 2 -> 5. Skala 1:1. Dostepny TYLKO przy Input = HEAD&RIM i typach RT-30K / RT-30HR (jedyne z niezerowa wartoscia domyslna: 2 i 3). Zakres na module: do ustalenia."
+      "opis": "TRIG IN 2 head. Noise Cancel, pole GNIAZDA. ZMIERZONE WPROST (noise.bin): przy RT-30K wyswietlacz pokazal 2 (= bajt), po ustawieniu 5 bajt poszedl 2 -> 5. Skala 1:1. Dostepny TYLKO przy Input = HEAD&RIM i typach RT-30K / RT-30HR (jedyne z niezerowa wartoscia domyslna: 2 i 3). Zakres z wyswietlacza: OFF..5. OFF = 0 WYWNIOSKOWANE (skala 1:1 zmierzona na 2 i 5), nie zmierzone wprost.",
+      "zakres": [
+        0,
+        5
+      ]
     },
     {
       "nazwa": "trigset.4.input",
@@ -627,7 +635,6 @@
     }
   ],
   "otwartePytania": [
-    "Zakres Noise Cancel na module (min/max) -- adres +0x0B i skala 1:1 juz zmierzone.",
     "Drugi rekord kazdego gniazda (2 i 4) to drugi pad w trybie PADx2 -- potwierdzone seria typow (4 niezalezne typy). W trybie HEAD&RIM rekord nieuzywany.",
     "Czy modul zmienia cos w rekordzie wejscia sam. Dwa bajty zmienily sie bez wiedzy Arka (Sensitivity 17 -> 32 w trzy-drobiazgi.bin, H/R Adjust 20 -> 31 w poly.bin). Rozstrzygnie para pustych backupow bez dotykania czegokolwiek.",
     "Co oznaczaja bajty +0x00 i +0x0A w rekordach RIM (2 i 4) -- maja wartosci, ale nie byly mierzone.",

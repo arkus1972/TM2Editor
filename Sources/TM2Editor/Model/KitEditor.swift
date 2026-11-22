@@ -324,6 +324,36 @@ final class KitEditor: ObservableObject {
         return true
     }
 
+    /// Czy moduł pokazuje to pole przy obecnych ustawieniach gniazda.
+    ///
+    /// Tam, gdzie moduł wyświetla „--", edytor pola nie pokazuje — inaczej
+    /// dałoby się wpisać wartość, której moduł sam nigdy by nie ustawił
+    /// (np. Noise Cancel dla PAD2). Reguły są wyłącznie te zmierzone:
+    /// - Rim Gain i H/R Adjust: tylko przy Input = HEAD&RIM,
+    /// - Noise Cancel: tylko przy HEAD&RIM i typie RT-30K albo RT-30HR.
+    /// Pozostałe pola są zawsze widoczne.
+    func czyModulPokazujePole(_ field: FieldSpec) -> Bool {
+        let id = field.id
+        guard id.hasPrefix("jack."),
+              let numer = Int(id.dropFirst("jack.".count).prefix { $0.isNumber }),
+              (1...2).contains(numer) else { return true }
+
+        let rekordGlowny = numer * 2 - 1
+        let headRim: Bool = {
+            guard let input = file.byte(at: Self.adresRekordu(rekordGlowny)) else { return true }
+            return input == 0
+        }()
+
+        if id.hasSuffix(".rimGain") || id.hasSuffix(".hrAdjust") {
+            return headRim
+        }
+        if id.hasSuffix(".noiseCancel") {
+            let typ = padType(rekord: rekordGlowny)?.nazwa
+            return headRim && (typ == "RT-30K" || typ == "RT-30HR")
+        }
+        return true
+    }
+
     private static func nazwaRekordu(_ rekord: Int) -> String {
         let gniazdo = (rekord - 1) / 2 + 1
         return rekord % 2 == 1 ? "TRIG IN \(gniazdo)" : "TRIG IN \(gniazdo) pad 2"

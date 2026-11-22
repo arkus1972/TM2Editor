@@ -616,6 +616,25 @@ extension BackupLayout {
                         + " Input = HEAD&RIM."
                 )
             )
+
+            layout.globalFields.append(
+                FieldSpec(
+                    id: "jack.\(numer).noiseCancel",
+                    label: "Noise Cancel — \(nazwa)",
+                    scope: .global,
+                    group: .triggerInput,
+                    offset: baza + 0x0B,
+                    encoding: .unsigned(min: 0, max: 5),
+                    note: "Zmierzone wprost (`noise.bin`): przy RT-30K wyświetlacz"
+                        + " pokazał 2 przy bajcie 2, a ustawienie 5 dało bajt 5 —"
+                        + " skala 1:1. Zakres z wyświetlacza: OFF…5. OFF = 0 jest"
+                        + " WYWNIOSKOWANE (jedyna wartość przed 1 przy skali 1:1),"
+                        + " nie zmierzone. Moduł pokazuje to pole tylko przy"
+                        + " Input = HEAD&RIM i typach RT-30K / RT-30HR — i tylko"
+                        + " te dwa typy mają tu wartość domyślną różną od zera.",
+                    display: .offWhenZero
+                )
+            )
         }
 
         return layout

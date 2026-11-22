@@ -6,6 +6,7 @@
 file.backupName
 jack.\(numer).hrAdjust
 jack.\(numer).input
+jack.\(numer).noiseCancel
 jack.\(numer).rimGain
 kit.name
 kit.tempo

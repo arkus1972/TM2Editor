@@ -53,6 +53,19 @@ struct TM2EditorApp: App {
                 Button("Revert All Changes") { model.editor?.revertAll() }
                     .disabled(model.editor?.canUndo != true)
             }
+
+            // Własne tło. W menu View, bo dotyczy wyglądu, nie pliku.
+            // Bez blokowania „Remove" przy braku tła: menu nie obserwuje
+            // obiektu tła, więc stan wyszarzenia mógłby kłamać — a usunięcie
+            // nieistniejącego tła po prostu niczego nie robi.
+            CommandGroup(after: .sidebar) {
+                Button("Choose Background Image…") {
+                    model.tlo.wybierz(log: model.log)
+                }
+                Button("Remove Background Image") {
+                    model.tlo.usun(log: model.log)
+                }
+            }
         }
 
         Settings {

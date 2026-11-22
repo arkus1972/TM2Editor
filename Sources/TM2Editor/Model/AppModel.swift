@@ -23,6 +23,11 @@ final class AppModel: ObservableObject {
     /// same, bezpośrednio.
     let selection = EditorSelection()
 
+    /// Własny obrazek w tle — tylko na tym komputerze, nigdy w projekcie.
+    /// Zwykłe `let`, z tego samego powodu co zaznaczenie: zmiana tła nie ma
+    /// ogłaszać zmiany całego modelu aplikacji.
+    let tlo = WlasneTlo()
+
     /// Edytor otwartego pliku. `nil` = nic nie jest otwarte.
     ///
     /// Zmiany WEWNĄTRZ edytora są przekazywane dalej ręcznie. Bez tego pozycje

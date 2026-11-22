@@ -13,6 +13,10 @@ struct KitBrowserView: View {
     /// wybranego triggera. Obserwują je dopiero te dzieci, które muszą.
     let selection: EditorSelection
 
+    /// Własne tło — przekazywane dalej, nie obserwowane tutaj, z tego samego
+    /// powodu co zaznaczenie.
+    let tlo: WlasneTlo
+
     var body: some View {
         HSplitView {
             KitListPane(
@@ -23,7 +27,7 @@ struct KitBrowserView: View {
             )
             .frame(minWidth: 240, idealWidth: 290, maxWidth: 380)
 
-            KitDetailView(editor: editor, selection: selection)
+            KitDetailView(editor: editor, selection: selection, tlo: tlo)
                 .frame(minWidth: 620)
         }
     }
@@ -166,10 +170,17 @@ struct KitDetailView: View {
 
     @ObservedObject var editor: KitEditor
     @ObservedObject var selection: EditorSelection
+    let tlo: WlasneTlo
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
+
+                WyswietlaczLCD(
+                    kit: selection.kit,
+                    nazwa: nazwaKitu,
+                    strefa: triggerLabel(selection.trigger)
+                )
 
                 if !editor.layout.canAddressKits {
                     NotMappedNotice()
@@ -177,7 +188,7 @@ struct KitDetailView: View {
 
                 // Pola kitu
                 FieldSection(
-                    title: "Kit \(selection.kit)",
+                    title: "Kit",
                     fields: editor.layout.kitFields,
                     editor: editor,
                     kit: selection.kit,
@@ -248,6 +259,16 @@ struct KitDetailView: View {
             .padding(20)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .background(alignment: .bottomTrailing) {
+            TloEdytora(tlo: tlo)
+        }
+    }
+
+    /// Nazwa z gotowego bufora edytora — ta sama, którą pokazuje lista kitów.
+    private var nazwaKitu: String? {
+        let indeks = selection.kit - 1
+        guard editor.kitNames.indices.contains(indeks) else { return nil }
+        return editor.kitNames[indeks]
     }
 
     /// Ustawienia wejścia dla wybranej strefy: pola triggera (`trigset.N.`)

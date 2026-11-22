@@ -50,7 +50,8 @@ struct ContentView: View {
                 if let editor = model.editor {
                     switch model.selectedTab {
                     case .kits:
-                        KitBrowserView(editor: editor, selection: model.selection)
+                        KitBrowserView(editor: editor, selection: model.selection,
+                                       tlo: model.tlo)
                     case .hex:
                         HexInspectorView(editor: editor, selection: model.selection)
                     case .layout:
@@ -75,9 +76,7 @@ struct WelcomeView: View {
         VStack(spacing: 20) {
             Spacer()
 
-            Image(systemName: "externaldrive.connected.to.line.below")
-                .font(.system(size: 56, weight: .light))
-                .foregroundStyle(.secondary)
+            ObrazPowitalny(tlo: model.tlo)
 
             Text("TM-2 Editor")
                 .font(.largeTitle.weight(.semibold))

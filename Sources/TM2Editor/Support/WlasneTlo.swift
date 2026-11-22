@@ -108,9 +108,15 @@ final class WlasneTlo: ObservableObject {
 /// Druga wersja zrobiła z niego miniaturę obok wyświetlacza LCD. Arek: „albo
 /// wszędzie, albo nigdzie". Słusznie — tło to tło.
 ///
-/// Teraz obrazek wypełnia całe okno, a panele z parametrami i lista kitów są
-/// półprzezroczyste (matowe szkło), więc widać go równo pod wszystkim.
-/// Bez ustawionego obrazka nic tu się nie rysuje i program wygląda jak dawniej.
+/// Trzecia wersja położyła go pod całym oknem, a panele zrobiła z matowego
+/// szkła. Nadal był „pod spodem i zasłaniany" — lista kitów i panele na
+/// macOS rysują własne tło i materiał nie przepuszcza go na tyle, żeby był
+/// czytelny.
+///
+/// Teraz leży NA WIERZCHU, jako przezroczysty znak wodny nad całym oknem.
+/// Nic go nie zasłania, a kliknięcia przez niego przechodzą. Ceną jest to, że
+/// leży też delikatnie na tekście — dlatego przezroczystość jest niska.
+/// Bez ustawionego obrazka nic tu się nie rysuje.
 struct TloOkna: View {
 
     @ObservedObject var tlo: WlasneTlo
@@ -123,7 +129,7 @@ struct TloOkna: View {
                     .scaledToFill()
                     .frame(width: geometria.size.width, height: geometria.size.height)
                     .clipped()
-                    .opacity(0.22)
+                    .opacity(0.14)
             }
         }
         .ignoresSafeArea()

@@ -13,8 +13,11 @@ struct ContentView: View {
                 WelcomeView()
             }
         }
-        // Własny obrazek pod całym oknem — na każdym ekranie tak samo.
-        .background { TloOkna(tlo: model.tlo) }
+        // Własny obrazek NAD całym oknem, jako przezroczysty znak wodny.
+        // Pod spodem zawsze coś go zasłaniało: lista kitów i panele rysują
+        // własne tło. Na wierzchu nic go nie przykryje, a kliknięcia przez
+        // niego przechodzą (allowsHitTesting(false) w TloOkna).
+        .overlay { TloOkna(tlo: model.tlo) }
         .alert("Something went wrong",
                isPresented: Binding(
                    get: { model.errorMessage != nil },

@@ -27,3 +27,16 @@ zmian zamiast kilku — zostałości przykryły właściwy pomiar.
 
 Rekord 1 = TRIG IN 1, rekord 2 = TRIG IN 2 (zmierzone 2026-11-21).
 Head i rim jednego gniazda dzielą jeden rekord.
+## 2026-11-22 — porządki: nowa baza i archiwum
+
+Nowy plik bazowy: `pusty-2.bin` — stan modułu po serii z 2026-11-22, identyczny co do
+bajtu z `pusty-1.bin` i `poly.bin`. Poprzednia baza przeniesiona do
+`archiwum/baza-2026-11-21.bin`; wszystkie pliki pomiarowe z `nowe/` oraz `poly.bin`
+(wrzucony do `Mapowanie/` zamiast do `nowe/`) — do `archiwum/`. Niczego nie usunięto.
+
+Para `pusty-1.bin` / `pusty-2.bin` (dwa zapisy pod rząd, bez dotykania czegokolwiek)
+jest identyczna: moduł nie ma licznika zapisów ani znacznika czasu. Każda różnica
+między dwoma backupami pochodzi z przycisków.
+
+---
+

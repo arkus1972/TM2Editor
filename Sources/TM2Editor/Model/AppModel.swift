@@ -1,3 +1,4 @@
+import AppKit
 import Combine
 import Foundation
 import SwiftUI
@@ -118,15 +119,66 @@ final class AppModel: ObservableObject {
                 + " \(zalozony.skopiowane) sampli z karty")
             otworzPlik(url: zalozony.backup)
             if !zalozony.brakujace.isEmpty {
-                let lista = zalozony.brakujace.prefix(10).joined(separator: ", ")
-                errorMessage = "\(zalozony.brakujace.count) sample file(s) used by this backup were not "
-                    + "found, so they are not in the project: \(lista). Open the backup straight "
-                    + "from the SD card (ROLAND/TM-2/Backup) to bring them along."
                 log.append(.warning, "Brak sampli: " + zalozony.brakujace.joined(separator: ", "))
+                zapytajOBrakujace(zalozony.brakujace)
             }
         } catch {
             errorMessage = "Could not create the project folder: \(error.localizedDescription)"
             log.append(.error, "Nie udało się założyć projektu: \(error)")
+        }
+    }
+
+    /// File › Find Missing Samples… — to samo pytanie w dowolnej chwili.
+    func znajdzBrakujaceSample() {
+        guard let editor, let wave = editor.folderWave, projekt != nil else { return }
+        let brakujace = ProjektTM2.brakujaceSample(w: editor.file.bytes, wave: wave)
+        guard !brakujace.isEmpty else {
+            let alert = NSAlert()
+            alert.messageText = "All samples are in the project"
+            alert.informativeText = "Every WAV file this backup uses is in \(wave.path)."
+            alert.runModal()
+            return
+        }
+        zapytajOBrakujace(brakujace)
+    }
+
+    /// Plik backupu trzyma tylko NAZWY sampli — dźwięk leży osobno, w WAVE
+    /// na karcie. Gdy backup otwarto bez karty obok, pytamy, gdzie są pliki,
+    /// i dociągamy je do projektu.
+    private func zapytajOBrakujace(_ brakujace: [String]) {
+        guard let wave = editor?.folderWave else { return }
+        var zostalo = brakujace
+        while !zostalo.isEmpty {
+            let alert = NSAlert()
+            alert.messageText = "\(zostalo.count) sample file(s) not found"
+            alert.informativeText = "A backup file stores only the NAMES of the samples — the sound "
+                + "itself lives in ROLAND/TM-2/WAVE on the SD card. Show the editor where the "
+                + "files are (the SD card, a copy of it, or any folder with them) and they will "
+                + "be copied into the project.\n\nMissing: "
+                + zostalo.prefix(8).joined(separator: ", ")
+                + (zostalo.count > 8 ? " …" : "")
+            alert.addButton(withTitle: "Locate Samples…")
+            alert.addButton(withTitle: "Not Now")
+            guard alert.runModal() == .alertFirstButtonReturn else { return }
+
+            let panel = NSOpenPanel()
+            panel.title = "Where Are the Samples?"
+            panel.message = "Choose the SD card, a copy of its ROLAND folder, or any folder with the WAV files."
+            panel.prompt = "Copy From Here"
+            panel.canChooseFiles = false
+            panel.canChooseDirectories = true
+            panel.allowsMultipleSelection = false
+            guard panel.runModal() == .OK, let wybrany = panel.url else { return }
+
+            let wynik = ProjektTM2.dociagnij(zostalo, zWybranego: wybrany, doWave: wave)
+            if let waveKarty = KartaSD.folderWave(zWybranego: wybrany) {
+                KartaSD.zapamietanyFolderWave = waveKarty
+            }
+            log.append(.info, "Dociągnięto \(wynik.skopiowane) sampli z \(wybrany.path)")
+            zostalo = wynik.nadal
+            // Lista sampli w widoku odświeży się przy następnym rysowaniu;
+            // dla pewności sygnał zmiany.
+            editor?.objectWillChange.send()
         }
     }
 

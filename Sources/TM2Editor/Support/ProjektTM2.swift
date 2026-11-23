@@ -129,6 +129,46 @@ enum ProjektTM2 {
         return Zalozony(backup: kopia, korzen: korzen, skopiowane: skopiowane, brakujace: brakujace)
     }
 
+    /// Sample, których backup używa, a których nie ma w folderze WAVE.
+    static func brakujaceSample(w bajty: [UInt8], wave: URL) -> [String] {
+        sciezkiSampli(w: bajty).filter {
+            !FileManager.default.fileExists(atPath: wave.appendingPathComponent($0).path)
+        }
+    }
+
+    /// Dociąga brakujące sample ze wskazanego miejsca do WAVE projektu.
+    ///
+    /// Wskazać można kartę (albo jej kopię, ROLAND, TM-2, WAVE) — wtedy
+    /// ścieżki są szukane względem jej WAVE — albo dowolny folder z plikami:
+    /// wtedy najpierw pełna ścieżka, a gdy jej nie ma, sama nazwa pliku.
+    /// Zwraca, czego dalej brakuje.
+    static func dociagnij(_ brakujace: [String], zWybranego wybrany: URL,
+                          doWave wave: URL) -> (skopiowane: Int, nadal: [String]) {
+        let fm = FileManager.default
+        let zrodloWave = KartaSD.folderWave(zWybranego: wybrany) ?? wybrany
+        var skopiowane = 0
+        var nadal: [String] = []
+        for sciezka in brakujace {
+            let kandydaci = [zrodloWave.appendingPathComponent(sciezka),
+                             wybrany.appendingPathComponent(sciezka),
+                             wybrany.appendingPathComponent((sciezka as NSString).lastPathComponent)]
+            guard let zrodlo = kandydaci.first(where: { fm.fileExists(atPath: $0.path) }) else {
+                nadal.append(sciezka)
+                continue
+            }
+            let cel = wave.appendingPathComponent(sciezka)
+            do {
+                try fm.createDirectory(at: cel.deletingLastPathComponent(),
+                                       withIntermediateDirectories: true)
+                try fm.copyItem(at: zrodlo, to: cel)
+                skopiowane += 1
+            } catch {
+                nadal.append(sciezka)
+            }
+        }
+        return (skopiowane, nadal)
+    }
+
     // MARK: - Zapis całości (Save As)
 
     struct Raport {

@@ -80,6 +80,33 @@ final class ProjektTM2Tests: XCTestCase {
         XCTAssertEqual(drugi.brakujace.count, 3)
     }
 
+    /// Backup otwarty bez karty: brakujące sample dociągane z karty (po
+    /// ścieżce) albo ze zwykłego folderu (po samej nazwie pliku).
+    func testDociaganieBrakujacychSampli() throws {
+        let wave = baza.appendingPathComponent("P/ROLAND/TM-2/WAVE")
+        try FileManager.default.createDirectory(at: wave, withIntermediateDirectories: true)
+        let bajty = bajtyZSamplami()
+        XCTAssertEqual(ProjektTM2.brakujaceSample(w: bajty, wave: wave),
+                       ["TEST_A.wav", "TESTY/TEST_C.wav", "BRAK.wav"])
+
+        // Karta z TEST_A i TESTY/TEST_C.
+        let karta = baza.appendingPathComponent("KARTA")
+        try zapiszPlik(Data("A".utf8), karta.appendingPathComponent("ROLAND/TM-2/WAVE/TEST_A.wav"))
+        try zapiszPlik(Data("C".utf8), karta.appendingPathComponent("ROLAND/TM-2/WAVE/TESTY/TEST_C.wav"))
+        var wynik = ProjektTM2.dociagnij(["TEST_A.wav", "TESTY/TEST_C.wav", "BRAK.wav"],
+                                         zWybranego: karta, doWave: wave)
+        XCTAssertEqual(wynik.skopiowane, 2)
+        XCTAssertEqual(wynik.nadal, ["BRAK.wav"])
+        XCTAssertEqual(try Data(contentsOf: wave.appendingPathComponent("TESTY/TEST_C.wav")), Data("C".utf8))
+
+        // Zwykły folder z plikiem — po samej nazwie.
+        let luzem = baza.appendingPathComponent("Pobrane")
+        try zapiszPlik(Data("B".utf8), luzem.appendingPathComponent("BRAK.wav"))
+        wynik = ProjektTM2.dociagnij(["BRAK.wav"], zWybranego: luzem, doWave: wave)
+        XCTAssertEqual(wynik.skopiowane, 1)
+        XCTAssertTrue(ProjektTM2.brakujaceSample(w: bajty, wave: wave).isEmpty)
+    }
+
     func testTM2DoceloweZRoznychWskazan() {
         let karta = baza.appendingPathComponent("KARTA")
         let tm2 = karta.appendingPathComponent("ROLAND/TM-2").path

@@ -32,6 +32,11 @@ struct TM2EditorApp: App {
                 .keyboardShortcut("s", modifiers: [.command, .shift])
                 .disabled(!model.hasOpenFile)
 
+                Button("Find Missing Samples…") {
+                    model.znajdzBrakujaceSample()
+                }
+                .disabled(model.projekt == nil)
+
                 Button("Show Project in Finder") {
                     if let projekt = model.projekt {
                         NSWorkspace.shared.activateFileViewerSelecting([projekt])

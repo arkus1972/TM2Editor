@@ -2,19 +2,33 @@ import AppKit
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// Wybór brzmienia padu: jedno ze 162 wewnętrznych albo plik WAV z karty.
+/// Wybór brzmienia padu: jedno ze 162 wewnętrznych albo plik z karty.
 ///
 /// Lista pokazuje brzmienia wewnętrzne; gdy pad gra sampel z karty, na górze
-/// listy stoi jego nazwa z ikoną karty. Przycisk obok wybiera plik z Maca —
-/// edytor przerabia go w razie potrzeby na format modułu (44,1 kHz / 16 bit),
-/// kopiuje do `ROLAND/TM-2/WAVE` na karcie i wpisuje ścieżkę do backupu.
-/// Wszystko jako jedna zmiana: jedno Cmd+Z cofa przypisanie (skopiowany plik
-/// zostaje na karcie — edytor z karty nic nie kasuje).
+/// listy stoi jego nazwa z ikoną karty. Obok dwa przyciski:
+///  - plik z Maca (WAV, AIFF, MP3, M4A, FLAC, OGG) → mini edytor → karta,
+///  - edycja sampla, który pad już gra (nowy plik, oryginał zostaje).
+/// Przypisanie to jedna zmiana — jedno Cmd+Z. Pliki skopiowane na kartę
+/// zostają (edytor z karty nic nie kasuje).
 struct WyborBrzmienia: View {
 
     @ObservedObject var editor: KitEditor
     let kit: Int
     let trigger: Int
+
+    /// Plik otwarty w mini edytorze, razem z miejscem, do którego ma trafić.
+    struct Edycja: Identifiable {
+        let id = UUID()
+        let probka: ProbkaAudio
+        let nazwa: String
+        /// Ścieżka w WAVE, gdy źródło już tam leży w formacie modułu —
+        /// wtedy bez zmian w edytorze nic nie kopiujemy.
+        let gotowaSciezka: String?
+        let kit: Int
+        let trigger: Int
+    }
+
+    @State private var edycja: Edycja?
 
     /// Znacznik wyboru oznaczający „plik z karty" — nie jest numerem brzmienia.
     private static let tagSampla = -1
@@ -23,6 +37,20 @@ struct WyborBrzmienia: View {
         HStack(spacing: 6) {
             lista
             przyciskPliku
+            if editor.sciezkaSampla(kit: kit, trigger: trigger) != nil {
+                przyciskEdycji
+            }
+        }
+        .sheet(item: $edycja) { e in
+            EdytorSampla(
+                oryginal: e.probka,
+                nazwaZrodla: e.nazwa,
+                zatwierdz: { wynik, nazwa, bezZmian in
+                    edycja = nil
+                    zapisz(wynik, nazwa: nazwa, bezZmian: bezZmian, edycja: e)
+                },
+                anuluj: { edycja = nil }
+            )
         }
     }
 
@@ -45,8 +73,17 @@ struct WyborBrzmienia: View {
             Image(systemName: "waveform.badge.plus")
         }
         .controlSize(.large)
-        .help("Assign an audio file from your Mac. It is converted to 44.1 kHz / 16-bit WAV "
-              + "if needed and copied to ROLAND/TM-2/WAVE on the SD card.")
+        .help("Assign an audio file from your Mac (WAV, AIFF, MP3, M4A, FLAC, OGG). "
+              + "You can trim and adjust it before it is copied to the SD card.")
+    }
+
+    private var przyciskEdycji: some View {
+        Button(action: edytujBiezacy) {
+            Image(systemName: "scissors")
+        }
+        .controlSize(.large)
+        .help("Edit the sample this pad plays. The result is saved as a new file; "
+              + "the original on the card is not changed.")
     }
 
     private var wybor: Binding<Int> {
@@ -63,45 +100,83 @@ struct WyborBrzmienia: View {
         )
     }
 
+    // MARK: - Akcje
+
     private func wybierzPlik() {
         guard let wave = editor.folderWave else {
-            pokazBlad(KartaSD.Blad.nieNaKarcie)
+            pokazKomunikat(KartaSD.Blad.nieNaKarcie.localizedDescription)
             return
         }
         let panel = NSOpenPanel()
         panel.title = "Choose an Audio File"
-        panel.message = "WAV, AIFF, MP3 and other formats are converted to what the TM-2 plays. "
+        panel.message = "WAV, AIFF, MP3, M4A, FLAC and OGG are converted to what the TM-2 plays. "
             + "Your original file is not changed."
-        panel.prompt = "Assign to Pad"
+        panel.prompt = "Open"
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = false
-        panel.allowedContentTypes = [.audio]
+        var typy: [UTType] = [.audio]
+        if let ogg = UTType(filenameExtension: "ogg") { typy.append(ogg) }
+        panel.allowedContentTypes = typy
         guard panel.runModal() == .OK, let zrodlo = panel.url else { return }
+        otworzWEdytorze(zrodlo, wave: wave)
+    }
 
-        // Wybór kitu/triggera zapamiętany teraz — panel jest modalny, ale
-        // przypisanie ma trafić tam, gdzie użytkownik kliknął przycisk.
-        let cel = (kit: kit, trigger: trigger)
+    private func edytujBiezacy() {
+        guard let wave = editor.folderWave,
+              let sciezka = editor.sciezkaSampla(kit: kit, trigger: trigger) else {
+            pokazKomunikat(KartaSD.Blad.nieNaKarcie.localizedDescription)
+            return
+        }
+        let plik = wave.appendingPathComponent(sciezka)
+        guard FileManager.default.fileExists(atPath: plik.path) else {
+            pokazKomunikat("The file WAVE/\(sciezka) is not on this card.")
+            return
+        }
+        otworzWEdytorze(plik, wave: wave)
+    }
+
+    private func otworzWEdytorze(_ zrodlo: URL, wave: URL) {
         do {
-            let wynik = try KartaSD.przygotuj(zrodlo: zrodlo, wave: wave)
-            if wynik.przerobiony {
-                editor.log.append(.info, "Przerobiono \(zrodlo.lastPathComponent) na WAV"
-                    + " 44,1 kHz / 16 bit → WAVE/\(wynik.sciezka)")
-            } else {
-                editor.log.append(.info, "Sampel na karcie: WAVE/\(wynik.sciezka)")
+            let probka = try ProbkaAudio.wczytaj(zrodlo)
+            var gotowa: String?
+            if KartaSD.czyFormatModulu(zrodlo),
+               let wzgledna = KartaSD.sciezkaWzgledna(zrodlo, wave: wave),
+               wzgledna.allSatisfy({ $0.isASCII }) {
+                gotowa = wzgledna
             }
-            if !editor.przypiszSampel(sciezka: wynik.sciezka, kit: cel.kit, trigger: cel.trigger),
+            // Kit i trigger zapamiętane teraz: przypisanie ma trafić tam,
+            // gdzie kliknięto, nawet gdyby w tle zmieniło się zaznaczenie.
+            edycja = Edycja(probka: probka, nazwa: zrodlo.lastPathComponent,
+                            gotowaSciezka: gotowa, kit: kit, trigger: trigger)
+        } catch {
+            editor.log.append(.error, "Nie udało się wczytać \(zrodlo.lastPathComponent):"
+                + " \(error.localizedDescription)")
+            pokazKomunikat(error.localizedDescription)
+        }
+    }
+
+    private func zapisz(_ probka: ProbkaAudio, nazwa: String, bezZmian: Bool, edycja e: Edycja) {
+        guard let wave = editor.folderWave else {
+            pokazKomunikat(KartaSD.Blad.nieNaKarcie.localizedDescription)
+            return
+        }
+        do {
+            let sciezka: String
+            if bezZmian, let gotowa = e.gotowaSciezka {
+                sciezka = gotowa
+            } else {
+                sciezka = try KartaSD.zapiszNaKarte(probka, nazwa: nazwa, wave: wave)
+                editor.log.append(.info, "Zapisano na kartę WAVE/\(sciezka)"
+                    + String(format: " (%.2f s, %ld kB)", probka.sekundy, probka.rozmiarPliku / 1024))
+            }
+            if !editor.przypiszSampel(sciezka: sciezka, kit: e.kit, trigger: e.trigger),
                let komunikat = editor.lastError {
                 pokazKomunikat(komunikat)
             }
         } catch {
-            editor.log.append(.error, "Nie udało się przygotować sampla:"
-                + " \(error.localizedDescription)")
-            pokazBlad(error)
+            editor.log.append(.error, "Nie udało się zapisać sampla: \(error.localizedDescription)")
+            pokazKomunikat(error.localizedDescription)
         }
-    }
-
-    private func pokazBlad(_ blad: Error) {
-        pokazKomunikat(blad.localizedDescription)
     }
 
     private func pokazKomunikat(_ tekst: String) {

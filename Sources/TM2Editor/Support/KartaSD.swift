@@ -99,130 +99,52 @@ enum KartaSD {
     }
 
     /// Przygotowuje plik dla modułu i zwraca ścieżkę do wpisania w backup
-    /// (względem WAVE) oraz to, czy był przerabiany.
+    /// (względem WAVE) oraz to, czy na kartę poszła nowa kopia.
+    ///
+    /// Plik, który już leży w WAVE i ma format modułu, jest tylko wskazany.
+    /// Każdy inny — wczytany (z przeróbką do 44,1 kHz) i zapisany na kartę
+    /// na czysto, bez metadanych (patrz `ProbkaAudio.danePliku`).
     static func przygotuj(zrodlo: URL, wave: URL) throws -> (sciezka: String, przerobiony: Bool) {
-        let fm = FileManager.default
-        let gotowy = czyFormatModulu(zrodlo)
-
-        // Plik już leży w WAVE i ma dobry format — tylko go wskazujemy.
-        if gotowy, let wzgledna = sciezkaWzgledna(zrodlo, wave: wave),
+        if czyFormatModulu(zrodlo), let wzgledna = sciezkaWzgledna(zrodlo, wave: wave),
            wzgledna.allSatisfy({ $0.isASCII }) {
             return (wzgledna, false)
         }
+        let probka = try ProbkaAudio.wczytaj(zrodlo)
+        let sciezka = try zapiszNaKarte(probka, nazwa: zrodlo.lastPathComponent, wave: wave)
+        return (sciezka, true)
+    }
 
+    /// Zapisuje próbkę jako nowy plik w WAVE i zwraca jego ścieżkę względną.
+    /// Nigdy nie nadpisuje: zajęta nazwa dostaje dopisek `_2`, `_3`…
+    static func zapiszNaKarte(_ probka: ProbkaAudio, nazwa: String, wave: URL) throws -> String {
+        let fm = FileManager.default
         do {
             try fm.createDirectory(at: wave, withIntermediateDirectories: true)
         } catch {
             throw Blad.brakFolderuWave(wave)
         }
-
-        let nazwa = bezpiecznaNazwa(zrodlo.lastPathComponent)
-        let cel = try wolneMiejsce(na: nazwa, w: wave, zrodlo: gotowy ? zrodlo : nil)
-        if fm.fileExists(atPath: cel.path) {
-            // Ta sama zawartość już jest na karcie — używamy jej.
-            return (cel.lastPathComponent, false)
-        }
         let ileWFolderze = (try? fm.contentsOfDirectory(atPath: wave.path))?
             .filter { $0.lowercased().hasSuffix(".wav") }.count ?? 0
         guard ileWFolderze < limitPlikowWFolderze else { throw Blad.pelnyFolder }
 
-        do {
-            if gotowy {
-                try fm.copyItem(at: zrodlo, to: cel)
-            } else {
-                try przerob(zrodlo, na: cel)
-            }
-        } catch {
-            // Usuwamy wyłącznie to, co sami przed chwilą zaczęliśmy zapisywać —
-            // niedokończony plik na karcie grałby śmieci.
-            try? fm.removeItem(at: cel)
-            throw error
-        }
-        return (cel.lastPathComponent, !gotowy)
-    }
-
-    /// Wolna nazwa w folderze. Gdy plik o tej nazwie istnieje i jest TAKI SAM
-    /// jak źródło (tylko przy kopiowaniu bez przeróbki da się to porównać),
-    /// zwraca istniejący — bez dublowania.
-    private static func wolneMiejsce(na nazwa: String, w folder: URL, zrodlo: URL?) throws -> URL {
-        let fm = FileManager.default
-        let rdzen = (nazwa as NSString).deletingPathExtension
+        let czysta = bezpiecznaNazwa(nazwa)
+        let rdzen = (czysta as NSString).deletingPathExtension
+        var wolny: URL?
         for numer in 1...99 {
-            let kandydat = folder.appendingPathComponent(numer == 1 ? nazwa : "\(rdzen)_\(numer).wav")
-            guard fm.fileExists(atPath: kandydat.path) else { return kandydat }
-            if let zrodlo, fm.contentsEqual(atPath: zrodlo.path, andPath: kandydat.path) {
-                return kandydat
-            }
-        }
-        throw Blad.konwersja("too many files named \(nazwa)")
-    }
-
-    /// Przeróbka na WAV 44,1 kHz / 16 bit, z zachowaniem mono/stereo.
-    static func przerob(_ zrodlo: URL, na cel: URL) throws {
-        let wejscie: AVAudioFile
-        do {
-            wejscie = try AVAudioFile(forReading: zrodlo)
-        } catch {
-            throw Blad.konwersja("cannot read \(zrodlo.lastPathComponent): \(error.localizedDescription)")
-        }
-        let formatWe = wejscie.processingFormat
-        let kanaly = formatWe.channelCount
-        guard (1...2).contains(kanaly) else { throw Blad.zaDuzoKanalow(Int(kanaly)) }
-
-        let ustawienia: [String: Any] = [
-            AVFormatIDKey: kAudioFormatLinearPCM,
-            AVSampleRateKey: czestotliwosc,
-            AVNumberOfChannelsKey: kanaly,
-            AVLinearPCMBitDepthKey: 16,
-            AVLinearPCMIsFloatKey: false,
-            AVLinearPCMIsBigEndianKey: false,
-            AVLinearPCMIsNonInterleaved: false,
-        ]
-        let wyjscie = try AVAudioFile(forWriting: cel, settings: ustawienia,
-                                      commonFormat: .pcmFormatFloat32, interleaved: false)
-        let formatWy = wyjscie.processingFormat
-        guard let konwerter = AVAudioConverter(from: formatWe, to: formatWy) else {
-            throw Blad.konwersja("no converter from \(formatWe) to \(formatWy)")
-        }
-
-        let porcja: AVAudioFrameCount = 8192
-        var koniec = false
-        while true {
-            guard let bufor = AVAudioPCMBuffer(pcmFormat: formatWy, frameCapacity: porcja) else {
-                throw Blad.konwersja("out of memory")
-            }
-            var blad: NSError?
-            let stan = konwerter.convert(to: bufor, error: &blad) { ile, status in
-                if koniec {
-                    status.pointee = .endOfStream
-                    return nil
-                }
-                guard let we = AVAudioPCMBuffer(pcmFormat: formatWe, frameCapacity: ile) else {
-                    status.pointee = .endOfStream
-                    return nil
-                }
-                do {
-                    try wejscie.read(into: we, frameCount: ile)
-                } catch {
-                    koniec = true
-                }
-                if we.frameLength == 0 {
-                    koniec = true
-                    status.pointee = .endOfStream
-                    return nil
-                }
-                status.pointee = .haveData
-                return we
-            }
-            if let blad {
-                throw Blad.konwersja(blad.localizedDescription)
-            }
-            if bufor.frameLength > 0 {
-                try wyjscie.write(from: bufor)
-            }
-            if stan == .endOfStream || stan == .error {
+            let kandydat = wave.appendingPathComponent(numer == 1 ? czysta : "\(rdzen)_\(numer).wav")
+            if !fm.fileExists(atPath: kandydat.path) {
+                wolny = kandydat
                 break
             }
         }
+        guard let cel = wolny else { throw Blad.konwersja("too many files named \(czysta)") }
+        do {
+            // .withoutOverwriting: gdyby plik pojawił się w międzyczasie,
+            // zapis się nie uda, zamiast go nadpisać.
+            try probka.danePliku().write(to: cel, options: .withoutOverwriting)
+        } catch {
+            throw Blad.konwersja(error.localizedDescription)
+        }
+        return cel.lastPathComponent
     }
 }

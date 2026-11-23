@@ -26,7 +26,14 @@ let package = Package(
     targets: [
         .executableTarget(
             name: "TM2Editor",
+            dependencies: ["CStbVorbis"],
             path: "Sources/TM2Editor"
+        ),
+        // Dekoder Ogg Vorbis (stb_vorbis, domena publiczna / MIT) — macOS sam
+        // nie czyta plików .ogg, a edytor ma je przyjmować jako sample.
+        .target(
+            name: "CStbVorbis",
+            path: "Sources/CStbVorbis"
         ),
         // Testy sięgają do celu wykonywalnego przez @testable import.
         // SwiftPM to obsługuje na macOS od narzędzi 5.5 — gdyby jednak
@@ -36,7 +43,8 @@ let package = Package(
         .testTarget(
             name: "TM2EditorTests",
             dependencies: ["TM2Editor"],
-            path: "Tests/TM2EditorTests"
+            path: "Tests/TM2EditorTests",
+            resources: [.copy("Zasoby")]
         )
     ]
 )

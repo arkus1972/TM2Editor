@@ -843,13 +843,14 @@ extension BackupLayout {
             (0x03, "threshold", "Threshold", 0, 31, nil,
              "Skala 1:1 — wyświetlacz 31 przy surowym 31. Zakres 0…31"
                 + " z pary max/min."),
-            (0x04, "curve", "Curve", 0, 6, nil,
-             "Siedem krzywych, raw 0…6. Zmierzone: raw 6 to LOUD2, czyli"
-                + " ostatnia pozycja listy. Stara instrukcja wymienia tylko"
-                + " pięć krzywych (LINEAR, LOG1, LOG2, LOUD1, LOUD2) —"
-                + " firmware ma ich więcej, a nazw dwóch środkowych nie"
-                + " znamy. Dlatego pole jest liczbą, a nie listą wyboru:"
-                + " lista z dziurami kłamałaby bardziej niż goły numer."),
+            (0x04, "curve", "Curve", 0, 6,
+             .lista(["LINEAR", "EXP1", "EXP2", "LOG1", "LOG2", "LOUD1", "LOUD2"]),
+             "Siedem krzywych, raw 0…6. Lista przeklikana przez Arka na"
+                + " module 23.11: LINEAR, EXP1, EXP2, LOG1, LOG2, LOUD1,"
+                + " LOUD2. Instrukcja zna tylko pięć — EXP1 i EXP2 doszły"
+                + " w nowszym systemie. Oba krańce zgodne z plikiem: raw 6"
+                + " zmierzone jako LOUD2, a raw 0 to wartość domyślna"
+                + " wszystkich 36 typów padów (u Rolanda domyślnie LINEAR)."),
             (0x06, "retrigCancel", "Retrig Cancel", 1, 16, nil,
              "Skala 1:1, dwa zgodne punkty: wyświetlacz 16 przy surowym 16"
                 + " i wyświetlacz 8 przy surowym 8. Zakres 1…16 — typowy dla"

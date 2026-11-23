@@ -954,6 +954,17 @@ final class BackupFileTests: XCTestCase {
 
     /// Pola, które mają własny sposób wyświetlania, muszą go realnie mieć
     /// w zmierzonym layoucie — inaczej poprawka widoku nic nie zmienia.
+    /// Krzywe przeklikane na module (23.11): siedem, z EXP1/EXP2, których
+    /// stara instrukcja nie zna. raw 6 = LOUD2 zmierzone wcześniej.
+    func testCurveNamesFromModule() throws {
+        let pole = try XCTUnwrap(BackupLayout.mapped2026_09_02.globalFields
+            .first { $0.id == "trigset.1.curve" })
+        let w = try XCTUnwrap(pole.display)
+        XCTAssertEqual((0...6).map { w.text(for: $0) },
+                       ["LINEAR", "EXP1", "EXP2", "LOG1", "LOG2", "LOUD1", "LOUD2"])
+        XCTAssertEqual(pole.encoding.numericRange, 0...6)
+    }
+
     /// Lista brzmień z Sound List: 162 pozycje, numer w pliku = numer − 1.
     /// Punkty kontrolne z fabrycznych kitów w backupie Arka.
     func testInstrumentNamesFromSoundList() throws {

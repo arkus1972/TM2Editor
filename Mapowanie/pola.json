@@ -639,7 +639,6 @@
     "Czy modul zmienia cos w rekordzie wejscia sam. Dwa bajty zmienily sie bez wiedzy Arka (Sensitivity 17 -> 32 w trzy-drobiazgi.bin, H/R Adjust 20 -> 31 w poly.bin). Rozstrzygnie para pustych backupow bez dotykania czegokolwiek.",
     "Co oznaczaja bajty +0x00 i +0x0A w rekordach RIM (2 i 4) -- maja wartosci, ale nie byly mierzone.",
     "Czym sa bajty +0x05 i +0x07 rekordu wejscia -- oba zmieniaja sie wylacznie razem z Type.",
-    "Nazwy dwoch brakujacych krzywych (Curve 0..6; wiemy, ze 6 = LOUD2).",
     "Slot brzmienia: +0x02 (wszedzie 1), +0x16 (wszedzie 0xFFFF), +0x18, +0x1C..+0x28.",
     "Naglowek pliku: bajt 0x2C -- OSTATNI nierozpoznany w pliku.",
     "Strefa ~101 KB zer po bloku kitow.",

@@ -635,7 +635,6 @@
     }
   ],
   "otwartePytania": [
-    "Parametry efektow kitu -- domkniecia: minima TAPE ECHO (kit 71 przeskoczyl na DELAY w serii min); w FLANGER, PHASER i WAH przypisanie Rate/Depth/Manual/Resonance (Sens/Frequency/Peak) przyjete z kolejnosci, bo wszystkie maja zakres 0-100 -- do potwierdzenia jednym pomiarem na parametr.",
     "Drugi rekord kazdego gniazda (2 i 4) to drugi pad w trybie PADx2 -- potwierdzone seria typow (4 niezalezne typy). W trybie HEAD&RIM rekord nieuzywany.",
     "Czy modul zmienia cos w rekordzie wejscia sam. Dwa bajty zmienily sie bez wiedzy Arka (Sensitivity 17 -> 32 w trzy-drobiazgi.bin, H/R Adjust 20 -> 31 w poly.bin). Rozstrzygnie para pustych backupow bez dotykania czegokolwiek.",
     "Co oznaczaja bajty +0x00 i +0x0A w rekordach RIM (2 i 4) -- maja wartosci, ale nie byly mierzone.",

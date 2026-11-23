@@ -12,9 +12,10 @@ import Foundation
 /// Zasada przypisania: kolejność pól w pliku = kolejność parametrów na
 /// wyświetlaczu. Potwierdzona pomiarem w DELAY, TAPE ECHO, CHORUS, EQUALIZER,
 /// COMP (Attack do 100, Release do 99), DIST, RINGMOD i REVERB. W FLANGER,
-/// PHASER i WAH wszystkie parametry mają ten sam zakres 0–100, więc pomiar
-/// nie rozróżnia, które pole jest które — tam ta zasada jest PRZYJĘTA, nie
-/// zmierzona. Oznaczone przy tych typach.
+/// PHASER i WAH wszystkie parametry mają ten sam zakres 0–100, więc seria
+/// max/min ich nie rozróżniała — rozstrzygnął osobny backup z 23.11
+/// (`efekty-kolejnosc.bin`): każdy parametr inna wartość, 1, 2, 3, 4, i w pliku
+/// ułożyły się dokładnie po kolei.
 ///
 /// Pola, których moduł nie pokazuje (np. +0x1E w DELAY, stałe 100), nie są
 /// tu wystawione — trzymają wartości domyślne i edytor ich nie rusza.
@@ -88,8 +89,9 @@ enum ParametryEfektow {
             poziom(1, 0x28),
         ]
 
-        // TAPE ECHO — maksima zmierzone; minimów brak (przy serii min kit 71
-        // przeskoczył na DELAY). Dolne granice z Sound List.
+        // TAPE ECHO — maksima zmierzone; minima odczytane z wyświetlacza 23.11
+        // (RepeatRate 0, Intensity 0, Bass/Treble −15 dB, Dry-Wet 100:0, Level 0),
+        // bez backupu: przy serii min kit 71 przeskoczył na DELAY.
         t[3] = [
             pole(3, "repeatRate", "RepeatRate", 0x1C, 0...127, .plain),
             pole(3, "intensity", "Intensity", 0x1E, 0...127, .plain),
@@ -110,8 +112,8 @@ enum ParametryEfektow {
             poziom(4, 0x28),
         ]
 
-        // FLANGER — adresy zmierzone, przypisanie Rate/Depth/Manual/Resonance
-        // PRZYJĘTE z kolejności (wszystkie 0–100). LoCut zmierzony (0…10).
+        // FLANGER — Rate/Depth/Manual/Resonance = 1/2/3/4 w efekty-kolejnosc.bin.
+        // LoCut zmierzony (0…10).
         t[5] = [
             pole(5, "rate", "Rate", 0x1C, 0...100, .plain),
             pole(5, "depth", "Depth", 0x20, 0...100, .plain),
@@ -122,7 +124,7 @@ enum ParametryEfektow {
             poziom(5, 0x2C),
         ]
 
-        // PHASER — adresy zmierzone, przypisanie PRZYJĘTE z kolejności.
+        // PHASER — Rate/Depth/Manual/Resonance = 1/2/3/4 w efekty-kolejnosc.bin.
         t[7] = [
             pole(7, "rate", "Rate", 0x1E, 0...100, .plain),
             pole(7, "depth", "Depth", 0x22, 0...100, .plain),
@@ -153,7 +155,7 @@ enum ParametryEfektow {
             pole(10, "makeUp", "Make Up", 0x24, 0...24, .przesuniecie(bias: 0, unit: "dB")),
         ]
 
-        // WAH — adresy zmierzone, przypisanie PRZYJĘTE z kolejności.
+        // WAH — Sens/Frequency/Peak = 1/2/3 w efekty-kolejnosc.bin.
         t[14] = [
             pole(14, "sens", "Sens", 0x1E, 0...100, .plain),
             pole(14, "frequency", "Frequency", 0x20, 0...100, .plain),

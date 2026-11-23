@@ -832,6 +832,24 @@ final class BackupFileTests: XCTestCase {
         }
     }
 
+    /// `efekty-kolejnosc.bin`: w FLANGER, PHASER i WAH każdy parametr dostał inną
+    /// wartość (1, 2, 3, 4) — seria max/min tych pól nie rozróżniała, bo
+    /// wszystkie mają zakres 0–100. Pomiar ma się zgadzać z tablicą.
+    func testFlangerPhaserWahFieldOrderMeasured() {
+        let zmierzone: [Int: [Int: String]] = [
+            5: [0x1C: "Rate", 0x20: "Depth", 0x22: "Manual", 0x24: "Resonance"],
+            7: [0x1E: "Rate", 0x22: "Depth", 0x24: "Manual", 0x26: "Resonance"],
+            14: [0x1E: "Sens", 0x20: "Frequency", 0x22: "Peak"],
+        ]
+        for (kod, pola) in zmierzone {
+            let parametry = ParametryEfektow.parametry(kodEfektu: kod)
+            for (offset, nazwa) in pola {
+                XCTAssertEqual(parametry.first { $0.offset == offset }?.label, nazwa,
+                               "efekt \(kod), +0x\(String(offset, radix: 16))")
+            }
+        }
+    }
+
     /// Odczyty Arka z wyświetlacza przy maksimach (23.11) i listy z modułu.
     func testEffectParametersShowValuesLikeTheModule() throws {
         func tekst(_ kod: Int, _ klucz: String, _ wartosc: Int) throws -> String {

@@ -54,6 +54,12 @@ zginęły trzy próby z 23.11. TM-2 nie ma zegara — data plików na karcie jes
 nowy backup poznaje się tylko po numerze.
 
 Do `archiwum/` poszły też `typy-1…9.bin` i `noise.bin` z 22.11. `nowe/` jest puste.
+
+`archiwum/efekty-kolejnosc.bin` (`385262c5b359`, przesłany przez czat jako `plik.bin`):
+FLANGER/PHASER Rate 1, Depth 2, Manual 3, Resonance 4, WAH Sens 1, Frequency 2,
+Peak 3 — w pliku dokładnie po kolei, przypisanie potwierdzone. Przy okazji kit 75
+przeskoczył z EQUALIZER na WAH (wartości domyślne WAH zgodne z tablicą co do bajtu),
+a w kicie 70 LoCut/HiCut zostały na 800 Hz / FLAT po przeklikaniu list.
 Mapa parametrów: `Sources/TM2Editor/Model/ParametryEfektow.swift`.
 
 ---

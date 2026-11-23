@@ -69,8 +69,20 @@ struct FieldRow: View {
     /// pogłosu…). Wtedy wybór z listy, jak na module — niezależnie od tego,
     /// czy w pliku siedzi jeden bajt, czy dwa.
     private var pozycjeListy: [String]? {
-        if case .lista(let pozycje)? = field.display { return pozycje }
+        if case .lista(let pozycje) = wyswietlanie { return pozycje }
         return nil
+    }
+
+    /// Sposób pokazania wartości. Zwykle ten z opisu pola; wyjątek to numer
+    /// instrumentu w slocie, który nie wygląda na brzmienie wewnętrzne —
+    /// wtedy goła liczba zamiast nazwy z listy fabrycznej (plik WAV z karty
+    /// dostałby inaczej nazwę zupełnie innego brzmienia).
+    private var wyswietlanie: FieldDisplay {
+        if field.id == "trig.instrument",
+           !editor.brzmienieWewnetrzne(kit: kit, trigger: trigger) {
+            return .plain
+        }
+        return field.display ?? .plain
     }
 
     @ViewBuilder
@@ -133,7 +145,7 @@ struct FieldRow: View {
             PoleLiczbowe(
                 wartosc: numberBinding.wrappedValue,
                 zakres: field.encoding.numericRange ?? 0...255,
-                wyswietlanie: field.display ?? .plain,
+                wyswietlanie: wyswietlanie,
                 ustaw: { nowa in
                     editor.set(.number(nowa), for: field, kit: kit, trigger: trigger)
                 },
@@ -151,7 +163,7 @@ struct FieldRow: View {
     /// Wartość tak, jak pokazałby ją moduł: `L15`, `300.0 ms`, albo po prostu
     /// liczba, jeśli pole nie ma własnego sposobu wyświetlania.
     private var displayedValue: String {
-        (field.display ?? .plain).text(for: numberBinding.wrappedValue)
+        wyswietlanie.text(for: numberBinding.wrappedValue)
     }
 
     /// Surowa liczba dziesiętna spod spodu — pokazywana drobnym drukiem tylko

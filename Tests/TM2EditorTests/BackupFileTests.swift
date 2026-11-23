@@ -954,6 +954,37 @@ final class BackupFileTests: XCTestCase {
 
     /// Pola, które mają własny sposób wyświetlania, muszą go realnie mieć
     /// w zmierzonym layoucie — inaczej poprawka widoku nic nie zmienia.
+    /// Lista brzmień z Sound List: 162 pozycje, numer w pliku = numer − 1.
+    /// Punkty kontrolne z fabrycznych kitów w backupie Arka.
+    func testInstrumentNamesFromSoundList() throws {
+        XCTAssertEqual(Instrumenty.nazwy.count, 162)
+        XCTAssertEqual(Set(Instrumenty.nazwy).count, 162, "Numer na początku rozróżnia dwa „Dance Lo”.")
+        let pole = try XCTUnwrap(BackupLayout.mapped2026_09_02.triggerFields
+            .first { $0.id == "trig.instrument" })
+        let w = try XCTUnwrap(pole.display)
+        XCTAssertEqual(w.text(for: 0), "001 Acous K")
+        XCTAssertEqual(w.text(for: 4), "005 Slammin' K")     // Kick&Tmbrin, head
+        XCTAssertEqual(w.text(for: 73), "074 Shaker")        // Kick&Tmbrin, rim
+        XCTAssertEqual(w.text(for: 64), "065 Cowbell 3")     // Cowbells, head
+        XCTAssertEqual(w.text(for: 107), "108 Boom Out")     // fabryczny Claps!
+        XCTAssertEqual(w.text(for: 161), "162 Edge T4")
+        XCTAssertEqual(w.text(for: 162), "#162", "Poza listą — goła liczba, nie zgadywana nazwa.")
+        XCTAssertEqual(w.parse("108 boom out"), 107)
+    }
+
+    /// Pola, których TM-2 nie ma, nie wiszą w zmierzonym układzie jako
+    /// „not mapped yet". W pustym zostają (zależą od nich inne testy).
+    func testFieldsThatDoNotExistOnTM2AreGone() {
+        let layout = BackupLayout.mapped2026_09_02
+        let wszystkie = (layout.kitFields + layout.triggerFields + layout.globalFields).map(\.id)
+        for id in ["kit.volume", "kit.tempo", "trig.decay", "sys.masterVolume"] {
+            XCTAssertFalse(wszystkie.contains(id), id)
+        }
+        XCTAssertTrue(wszystkie.contains("sys.midiChannel"), "MIDI Ch istnieje — czeka na pomiar.")
+        XCTAssertNotNil(BackupLayout.unmappedTM2.kitFields.first { $0.id == "kit.volume" })
+        XCTAssertEqual(FieldDisplay.scaled(divisor: 1, fractionDigits: 0, unit: "%").text(for: 99), "99%")
+    }
+
     func testMappedLayoutAssignsDisplayStyles() {
         let layout = BackupLayout.mapped2026_09_02
         let pan = layout.triggerFields.first(where: { $0.id == "trig.pan" })

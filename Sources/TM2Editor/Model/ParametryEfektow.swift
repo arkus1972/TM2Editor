@@ -20,6 +20,9 @@ import Foundation
 /// Pola, których moduł nie pokazuje (np. +0x1E w DELAY, stałe 100), nie są
 /// tu wystawione — trzymają wartości domyślne i edytor ich nie rusza.
 ///
+/// Nazwy parametrów jak na WYŚWIETLACZU, nie jak w PDF: Sound List pisze
+/// „Feedbak", moduł pokazuje „FeedBack" (odczyt Arka 23.11).
+///
 /// Rozbieżność z PDF: lista typów DIST w Sound List ma „METAL LEAD" jako
 /// jedną pozycję. Plik (maksimum 24, czyli 25 pozycji) i przeklikanie listy
 /// na module mówią: METAL i LEAD osobno. Obowiązuje moduł.
@@ -57,7 +60,8 @@ enum ParametryEfektow {
 
     static let polarity = ["UP", "DOWN"]
 
-    /// Kolejność przeklikana na module. Sound List pisze „HALL 1", moduł „HALL1".
+    /// Kolejność przeklikana na module. Sound List pisze „HALL 1", moduł
+    /// „HALL1" — sprawdzone na wyświetlaczu 23.11.
     static let typPoglosu = ["AMB", "ROOM", "HALL1", "HALL2", "PLATE"]
 
     /// 25 pozycji, przeklikane na module od MID BST do MUFF FUZZ.
@@ -82,7 +86,7 @@ enum ParametryEfektow {
         // DELAY — wszystkie skrajności zmierzone.
         t[1] = [
             pole(1, "dlyTime", "DlyTime", 0x1C, 0...350, .scaled(divisor: 1, fractionDigits: 0, unit: "ms")),
-            pole(1, "feedback", "Feedbak", 0x20, 0...99, .scaled(divisor: 1, fractionDigits: 0, unit: "%")),
+            pole(1, "feedback", "FeedBack", 0x20, 0...99, .scaled(divisor: 1, fractionDigits: 0, unit: "%")),
             pole(1, "loCut", "LoCut", 0x22, lista: loCut),
             pole(1, "hiCut", "HiCut", 0x24, lista: hiCut),
             dryWet(1, 0x26),

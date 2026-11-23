@@ -593,7 +593,7 @@ final class KitEditorTests: XCTestCase {
 
         let parametry = editor.kitEffectParameters(kit: 7)
         XCTAssertEqual(parametry.map(\.label),
-                       ["DlyTime", "Feedbak", "LoCut", "HiCut", "Dry-Wet", "Level"])
+                       ["DlyTime", "FeedBack", "LoCut", "HiCut", "Dry-Wet", "Level"])
         let dlyTime = try XCTUnwrap(parametry.first)
         XCTAssertEqual(editor.value(of: dlyTime, kit: 7, trigger: 1), .number(100))
 
@@ -615,5 +615,19 @@ final class KitEditorTests: XCTestCase {
 
         editor.undo()
         XCTAssertEqual(editor.file.slice(at: kit7 + 0x1C, length: 2), [100, 0])
+    }
+
+    /// Nazwa instrumentu tylko przy brzmieniu wewnętrznym (+0x02 slotu = 1).
+    func testBrzmienieWewnetrzneRozpoznawanePoBajcieBanku() {
+        var bytes = [UInt8](repeating: 0, count: 124_748)
+        let slot1 = 0x7C + 0x42            // kit 1, TRIG IN 1 head
+        let slot2 = slot1 + 42             // kit 1, TRIG IN 1 rim
+        bytes[slot1 + 0x02] = 1
+        bytes[slot2 + 0x02] = 2
+        let editor = KitEditor(file: BackupFile(bytes: bytes, layout: .mapped2026_09_02),
+                               log: EditorLog())
+        XCTAssertTrue(editor.brzmienieWewnetrzne(kit: 1, trigger: 1))
+        XCTAssertFalse(editor.brzmienieWewnetrzne(kit: 1, trigger: 2))
+        XCTAssertFalse(editor.brzmienieWewnetrzne(kit: 1, trigger: 3), "Zero to też nie bank wewnętrzny.")
     }
 }

@@ -186,7 +186,9 @@ enum FieldDisplay: Codable, Equatable {
             // Pusta jednostka to normalny przypadek: Rim Gain pokazuje samo
             // „8.0", bez niczego dalej. Bez tego warunku zostawałaby wisząca
             // spacja na końcu wartości.
-            return unit.isEmpty ? liczba : "\(liczba) \(unit)"
+            // Procent moduł pisze bez spacji („99%"), jak w Sound List.
+            if unit.isEmpty { return liczba }
+            return unit == "%" ? "\(liczba)%" : "\(liczba) \(unit)"
 
         case .lista(let pozycje):
             // Wartość spoza listy pokazujemy jako surową liczbę z krzyżykiem,

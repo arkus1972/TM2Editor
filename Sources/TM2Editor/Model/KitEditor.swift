@@ -380,6 +380,21 @@ final class KitEditor: ObservableObject {
         layout.canAddressKits && layout.kitStride == 234
     }
 
+    /// Czy slot gra brzmienie wewnętrzne — wtedy numer instrumentu to pozycja
+    /// na liście z Sound List i można pokazać nazwę.
+    ///
+    /// Kryterium: +0x02 slotu = 1. Tak jest w KAŻDYM slocie każdego backupu
+    /// Arka (wszystkie grają brzmienia wewnętrzne). Jak wygląda slot z plikiem
+    /// WAV z karty, nie zmierzyliśmy — ale skoro to pole stoi zaraz za numerem
+    /// instrumentu i nigdy nie jest inne niż 1, to najlepszy kandydat na
+    /// „bank". Przy każdej innej wartości edytor woli pokazać gołą liczbę,
+    /// niż przypisać plikowi z karty nazwę brzmienia fabrycznego.
+    func brzmienieWewnetrzne(kit: Int, trigger: Int) -> Bool {
+        guard let poczatek = layout.triggerOrigin(kit: kit, trigger: trigger),
+              let bajty = file.slice(at: poczatek + 0x02, length: 2) else { return false }
+        return bajty == [1, 0]
+    }
+
     /// Parametry bieżącego efektu kitu, w kolejności z wyświetlacza modułu.
     /// THRU i efekt spoza tablicy — pusta lista.
     func kitEffectParameters(kit: Int) -> [FieldSpec] {

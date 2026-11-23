@@ -472,6 +472,10 @@ extension BackupLayout {
             switch layout.triggerFields[index].id {
             case "trig.instrument":
                 layout.triggerFields[index].offset = 0   // początek rekordu triggera
+                // Nazwy z Sound List (Instrumenty.swift). Widok pokazuje je
+                // tylko przy brzmieniu wewnętrznym — patrz
+                // KitEditor.brzmienieWewnetrzne.
+                layout.triggerFields[index].display = .lista(Instrumenty.nazwy)
                 layout.triggerFields[index].note = "Potwierdzone: zmiana brzmienia na padzie"
                     + " rusza dokładnie ten bajt (+1 na kolejną pozycję na liście)."
                     + " Moduł Arka ma maksymalnie 162 brzmienia (fabryczne), więc"
@@ -529,6 +533,20 @@ extension BackupLayout {
             "trig.retrigCancel", "trig.maskTime",
         ]
         layout.triggerFields.removeAll { przeniesioneDoGlobalnych.contains($0.id) }
+
+        // Pola, których TM-2 w ogóle NIE MA. Zgadnięte na samym początku
+        // projektu, zanim cokolwiek zmierzyliśmy — według tego, co zwykle mają
+        // moduły perkusyjne. Instrukcja (TM-2_eng04, s. 11–14) zna w kicie tylko
+        // nazwę, efekt i cztery brzmienia; w brzmieniu nie ma Decay; w SYSTEM
+        // jest OutGain, a nie Master Volume. Wisiały jako „not mapped yet"
+        // i zaniżały licznik zmapowanych pól (41/47), sugerując, że coś jeszcze
+        // jest do znalezienia. MIDI Ch i PrgChg Rx zostają — one istnieją.
+        let nieIstniejeNaTM2: Set<String> = [
+            "kit.volume", "kit.tempo", "trig.decay", "sys.masterVolume",
+        ]
+        layout.kitFields.removeAll { nieIstniejeNaTM2.contains($0.id) }
+        layout.triggerFields.removeAll { nieIstniejeNaTM2.contains($0.id) }
+        layout.globalFields.removeAll { nieIstniejeNaTM2.contains($0.id) }
 
         // Pola, których `unmappedTM2` w ogóle nie przewidywał — wyszły dopiero
         // z mapowania różnicowego. Dopisujemy je tutaj, a nie do pustego

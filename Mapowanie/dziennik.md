@@ -81,3 +81,15 @@ W `a` przy okazji: kit 77 DELAY z wartościami domyślnymi i Curve TRIG IN 1 na
 LOUD2 (po przeklikaniu listy krzywych) — nie należą do serii.
 
 ---
+## 2026-11-23 — sample z karty
+
+| Plik | Co |
+|---|---|
+| `archiwum/wav-1.bin` | kit 70: TEST_A, TEST_B, TESTY/TEST_C przypisane na module |
+| `archiwum/wav-2.bin` | po dodaniu TEST_0.wav (sortuje się wcześniej) — przypisania bez zmian, moduł szuka po nazwie |
+| `archiwum/wav-test-z-edytora.bin` | plik zrobiony poza modułem: kit 71 z samplami, +0x00 = 0. BACKUP LOAD — oba zagrały |
+
+Pułapka: pierwsza „cisza" na kicie 70 to nie sampel, tylko DELAY z Level 0 zostawiony
+z serii minimów efektów (Level efektu to wyjście całego efektu, z sygnałem suchym).
+
+---

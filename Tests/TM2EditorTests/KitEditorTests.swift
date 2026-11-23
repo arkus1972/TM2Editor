@@ -641,6 +641,43 @@ final class KitEditorTests: XCTestCase {
                        "Tablica kończy się 66 B przed sumą MD5.")
     }
 
+    /// Przypisanie sampla: slot (numer 0, bank 2) i wpis ścieżki naraz, jedna
+    /// pozycja na liście zmian, jedno cofnięcie przywraca oba miejsca.
+    func testPrzypisanieSamplaJednaZmianaDwaMiejsca() throws {
+        var bytes = [UInt8](repeating: 0, count: 124_748)
+        let slot = 0x7C + 70 * 234 + 0x42          // kit 71, TRIG IN 1 head
+        let wpis = 0x5AFA + (70 * 4) * 256
+        bytes[slot] = 62                            // 063 Cowbell 1
+        bytes[slot + 0x02] = 1
+        bytes.replaceSubrange(wpis..<(wpis + 6), with: Array("STARY\0".utf8))
+        let przed = bytes
+        let editor = KitEditor(file: BackupFile(bytes: bytes, layout: .mapped2026_09_02),
+                               log: EditorLog())
+        XCTAssertTrue(editor.obslugujeBrzmienia)
+
+        XCTAssertTrue(editor.przypiszSampel(sciezka: "TESTY/TEST_C.wav", kit: 71, trigger: 1))
+        XCTAssertEqual(editor.file.slice(at: slot, length: 4), [0, 0, 2, 0])
+        XCTAssertEqual(editor.sciezkaSampla(kit: 71, trigger: 1), "TESTY/TEST_C.wav")
+        XCTAssertEqual(editor.file.slice(at: wpis + 16, length: 240), [UInt8](repeating: 0, count: 240),
+                       "Za ścieżką same zera — bez śmieci po poprzednim wpisie.")
+        XCTAssertEqual(editor.changes.count, 1)
+
+        editor.undo()
+        XCTAssertEqual(editor.file.bytes, przed, "Cofnięcie przywraca slot i wpis co do bajtu.")
+        editor.redo()
+        XCTAssertEqual(editor.sciezkaSampla(kit: 71, trigger: 1), "TESTY/TEST_C.wav")
+
+        // Powrót do brzmienia wewnętrznego: bank 1, numer; ścieżka zostaje.
+        XCTAssertTrue(editor.ustawBrzmienieWewnetrzne(numer: 107, kit: 71, trigger: 1))
+        XCTAssertEqual(editor.file.slice(at: slot, length: 4), [107, 0, 1, 0])
+        XCTAssertNil(editor.sciezkaSampla(kit: 71, trigger: 1))
+        XCTAssertEqual(editor.numerBrzmienia(kit: 71, trigger: 1), 107)
+
+        // Ścieżka z polskimi znakami albo za długa — odmowa.
+        XCTAssertFalse(editor.przypiszSampel(sciezka: "Werbel ą.wav", kit: 71, trigger: 1))
+        XCTAssertFalse(editor.przypiszSampel(sciezka: String(repeating: "a", count: 256), kit: 71, trigger: 1))
+    }
+
     /// Nazwa instrumentu tylko przy brzmieniu wewnętrznym (+0x02 slotu = 1).
     func testBrzmienieWewnetrzneRozpoznawanePoBajcieBanku() {
         var bytes = [UInt8](repeating: 0, count: 124_748)

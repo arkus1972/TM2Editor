@@ -1,6 +1,17 @@
 import Combine
 import Foundation
 
+/// Dodatkowy kawałek pliku zmieniony w ramach jednej zmiany.
+///
+/// Przypisanie sampla z karty rusza dwa miejsca naraz — slot brzmienia
+/// (numer i „bank") i wpis w tablicy ścieżek, sto kilka kilobajtów dalej.
+/// Dla użytkownika to jedna czynność, więc jedno Cmd+Z ma cofać oba.
+struct FragmentZmiany: Equatable {
+    let offset: Int
+    let oldRaw: [UInt8]
+    let newRaw: [UInt8]
+}
+
 /// Pojedyncza zmiana wprowadzona przez użytkownika.
 ///
 /// Zmiana jest opisana logicznie (które pole, w którym kicie, w którym
@@ -31,6 +42,9 @@ struct EditChange: Identifiable, Equatable {
     /// nie może się nie udać.
     let oldRaw: [UInt8]
     let newRaw: [UInt8]
+
+    /// Inne miejsca pliku zmienione razem z tym — cofane i ponawiane razem.
+    var dodatkowe: [FragmentZmiany] = []
 
     /// Opis do wyświetlenia. Interfejs jest po angielsku.
     var summary: String {
@@ -431,6 +445,131 @@ final class KitEditor: ObservableObject {
         return String(decoding: tekst, as: UTF8.self)
     }
 
+    /// Czy układ to zmierzona geometria — tylko wtedy wolno zmieniać
+    /// brzmienie przez „bank" i tablicę ścieżek.
+    var obslugujeBrzmienia: Bool {
+        layout.kitStride == 234 && layout.kitBlockOrigin == 0x7C
+            && layout.triggerStride == 42 && file.size == 124_748
+    }
+
+    /// Numer brzmienia wewnętrznego w slocie (0…161), surowy z +0x00.
+    func numerBrzmienia(kit: Int, trigger: Int) -> Int {
+        guard let poczatek = layout.triggerOrigin(kit: kit, trigger: trigger),
+              let b = file.slice(at: poczatek, length: 2) else { return 0 }
+        return Int(b[0]) | (Int(b[1]) << 8)
+    }
+
+    /// Folder WAVE na karcie, z której otwarto backup — tam idą sample.
+    var folderWave: URL? {
+        file.sourceURL.flatMap { KartaSD.folderWave(dlaBackupu: $0) }
+    }
+
+    /// Przypisuje padowi plik WAV z karty: slot dostaje „bank" 2 (karta)
+    /// i numer 0, a tablica ścieżek — ścieżkę względem `ROLAND/TM-2/WAVE`.
+    ///
+    /// Numer 0 a nie to, co wpisuje moduł (161, 154): sprawdzone na sprzęcie
+    /// 2026-11-23 plikiem `wav-test` — moduł grał oba sample z numerem 0,
+    /// więc szuka pliku wyłącznie po ścieżce.
+    ///
+    /// Wpis ścieżki jest czyszczony do zera na całej długości — moduł zostawia
+    /// za zerem śmieci, edytor nie musi.
+    @discardableResult
+    func przypiszSampel(sciezka: String, kit: Int, trigger: Int) -> Bool {
+        let bajtySciezki = Array(sciezka.utf8)
+        guard !bajtySciezki.isEmpty, bajtySciezki.count < Self.dlugoscSciezkiWav,
+              bajtySciezki.allSatisfy({ $0 >= 0x20 && $0 < 0x7F }) else {
+            lastError = "The file path must be plain ASCII and shorter than 256 characters."
+            return false
+        }
+        var nowyWpis = [UInt8](repeating: 0, count: Self.dlugoscSciezkiWav)
+        nowyWpis.replaceSubrange(0..<bajtySciezki.count, with: bajtySciezki)
+        let opisPoprzedni = opisBrzmienia(kit: kit, trigger: trigger)
+        return zapiszBrzmienie(slot: [0, 0, 2, 0], wpis: nowyWpis, kit: kit, trigger: trigger,
+                               stary: opisPoprzedni, nowy: "SD: " + sciezka)
+    }
+
+    /// Wraca do brzmienia wewnętrznego o numerze 0…161 (numer z listy − 1).
+    /// Wpisu w tablicy ścieżek nie rusza — przy „banku" 1 moduł go nie czyta.
+    @discardableResult
+    func ustawBrzmienieWewnetrzne(numer: Int, kit: Int, trigger: Int) -> Bool {
+        guard Instrumenty.nazwy.indices.contains(numer) else {
+            lastError = "Unknown internal sound #\(numer)."
+            return false
+        }
+        return zapiszBrzmienie(slot: [UInt8(numer & 0xFF), UInt8(numer >> 8), 1, 0], wpis: nil,
+                               kit: kit, trigger: trigger,
+                               stary: opisBrzmienia(kit: kit, trigger: trigger),
+                               nowy: Instrumenty.nazwy[numer])
+    }
+
+    private func opisBrzmienia(kit: Int, trigger: Int) -> String {
+        if let sciezka = sciezkaSampla(kit: kit, trigger: trigger) { return "SD: " + sciezka }
+        guard let poczatek = layout.triggerOrigin(kit: kit, trigger: trigger),
+              let b = file.slice(at: poczatek, length: 2) else { return "?" }
+        let numer = Int(b[0]) | (Int(b[1]) << 8)
+        return Instrumenty.nazwy.indices.contains(numer) ? Instrumenty.nazwy[numer] : "#\(numer)"
+    }
+
+    private func zapiszBrzmienie(slot nowySlot: [UInt8], wpis nowyWpis: [UInt8]?,
+                                 kit: Int, trigger: Int, stary: String, nowy: String) -> Bool {
+        guard obslugujeBrzmienia,
+              (1...99).contains(kit), (1...4).contains(trigger),
+              let poczatek = layout.triggerOrigin(kit: kit, trigger: trigger),
+              let staryslot = file.slice(at: poczatek, length: 4) else {
+            lastError = "Sounds cannot be changed with this layout."
+            return false
+        }
+        let adresWpisu = Self.poczatekSciezekWav
+            + ((kit - 1) * 4 + (trigger - 1)) * Self.dlugoscSciezkiWav
+        var dodatkowe: [FragmentZmiany] = []
+        if let nowyWpis {
+            guard let staryWpis = file.slice(at: adresWpisu, length: Self.dlugoscSciezkiWav) else {
+                lastError = "The sample table points outside the file."
+                return false
+            }
+            if staryWpis != nowyWpis {
+                dodatkowe.append(FragmentZmiany(offset: adresWpisu, oldRaw: staryWpis, newRaw: nowyWpis))
+            }
+        }
+        guard staryslot != nowySlot || !dodatkowe.isEmpty else { return true }
+
+        do {
+            try file.setSlice(nowySlot, at: poczatek)
+            for fragment in dodatkowe {
+                try file.setSlice(fragment.newRaw, at: fragment.offset)
+            }
+        } catch {
+            // Cofamy to, co zdążyło wejść — plik nie może zostać w pół drogi.
+            try? file.setSlice(staryslot, at: poczatek)
+            for fragment in dodatkowe {
+                try? file.setSlice(fragment.oldRaw, at: fragment.offset)
+            }
+            lastError = error.localizedDescription
+            log.append(.error, "Zmiana brzmienia nie powiodła się: \(error.localizedDescription)")
+            return false
+        }
+
+        let change = EditChange(
+            fieldID: "trig.instrument",
+            fieldLabel: "Instrument",
+            scope: .trigger,
+            kit: kit,
+            trigger: trigger,
+            oldValue: .text(stary),
+            newValue: .text(nowy),
+            timestamp: Date(),
+            offset: poczatek,
+            oldRaw: staryslot,
+            newRaw: nowySlot,
+            dodatkowe: dodatkowe
+        )
+        changes.append(change)
+        redoStack.removeAll()
+        odswiezPamiecPodreczna()
+        log.append(.edit, change.summary)
+        return true
+    }
+
     /// Parametry bieżącego efektu kitu, w kolejności z wyświetlacza modułu.
     /// THRU i efekt spoza tablicy — pusta lista.
     func kitEffectParameters(kit: Int) -> [FieldSpec] {
@@ -504,6 +643,10 @@ final class KitEditor: ObservableObject {
     func undo() {
         guard let change = changes.popLast() else { return }
         do {
+            // Od końca — odwrotnie niż przy zapisie.
+            for fragment in change.dodatkowe.reversed() {
+                try file.setSlice(fragment.oldRaw, at: fragment.offset)
+            }
             try file.setSlice(change.oldRaw, at: change.offset)
             redoStack.append(change)
             lastError = nil
@@ -529,6 +672,9 @@ final class KitEditor: ObservableObject {
         guard let change = redoStack.popLast() else { return }
         do {
             try file.setSlice(change.newRaw, at: change.offset)
+            for fragment in change.dodatkowe {
+                try file.setSlice(fragment.newRaw, at: fragment.offset)
+            }
             changes.append(change)
             lastError = nil
             odswiezPamiecPodreczna()

@@ -708,7 +708,7 @@
       "offset": 23290,
       "dlugosc": 101376,
       "kodowanie": "tablica_ascii_256B",
-      "opis": "TABLICA SCIEZEK DO PLIKOW WAV z karty (dawny 'obszar ~101 KB zer'): 396 wpisow po 256 B, wpis = (kit-1)*4 + (pad-1). Sciezka wzgledem ROLAND/TM-2/WAVE, ASCII, '/', zakonczona zerem; za zerem modul zostawia smieci z poprzedniego wpisu. Uzywana, gdy slot ma +0x02 = 2 (karta; 1 = brzmienie wewnetrzne). Modul szuka pliku PO NAZWIE (dodanie pliku sortujacego sie wczesniej nic nie zmienilo). Zmierzone wav-1.bin / wave-2.bin, 2026-11-23."
+      "opis": "TABLICA SCIEZEK DO PLIKOW WAV z karty (dawny 'obszar ~101 KB zer'): 396 wpisow po 256 B, wpis = (kit-1)*4 + (pad-1). Sciezka wzgledem ROLAND/TM-2/WAVE, ASCII, '/', zakonczona zerem; za zerem modul zostawia smieci z poprzedniego wpisu. Uzywana, gdy slot ma +0x02 = 2 (karta; 1 = brzmienie wewnetrzne). Modul szuka pliku PO NAZWIE (dodanie pliku sortujacego sie wczesniej nic nie zmienilo). Zmierzone wav-1.bin / wave-2.bin, 2026-11-23. Pole +0x00 slotu przy samplu (modul wpisuje 161/154) NIE MA ZNACZENIA: plik wav-test z +0x00 = 0 zagral oba sample na sprzecie (2026-11-23). Edytor wpisuje 0."
     }
   ],
   "otwartePytania": [
@@ -717,7 +717,6 @@
     "Co oznaczaja bajty +0x00 i +0x0A w rekordach RIM (2 i 4) -- maja wartosci, ale nie byly mierzone.",
     "Czym sa bajty +0x05 i +0x07 rekordu wejscia -- oba zmieniaja sie wylacznie razem z Type.",
     "Slot brzmienia: +0x02 (wszedzie 1), +0x16 (wszedzie 0xFFFF), +0x18, +0x1C..+0x28.",
-    "W pliku jest 100 nazw kitow, nie 99 -- dlaczego jedna wiecej?",
-    "Pole +0x00 slotu przy samplu z karty (+0x02 = 2): TEST_A i TEST_B -> 161, TEST_0 i TESTY/TEST_C -> 154. Nie numer pliku. Czy modul w ogole go uzywa -- do sprawdzenia plikiem zapisanym przez edytor."
+    "W pliku jest 100 nazw kitow, nie 99 -- dlaczego jedna wiecej?"
   ]
 }

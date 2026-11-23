@@ -374,269 +374,6 @@ extension BackupLayout {
             )
         ]
 
-        // USTAWIENIA WEJŚĆ TRIGGEROWYCH — globalne, nie kitowe.
-        //
-        // Strefa 0x40…0x7B to cztery rekordy po 15 B, po jednym na trigger
-        // (1 head, 1 rim, 2 head, 2 rim). Że są globalne, wyszło dwojako:
-        // nie jadą razem z kitem przy przestawianiu kitów, a zmiana zrobiona
-        // na kicie 40 wylądowała w rekordzie pierwszym. To jest spójne z tym,
-        // jak działa sprzęt: czułość zależy od pada wpiętego w gniazdo,
-        // a nie od tego, jakie brzmienie akurat gra.
-        //
-        // Kolejność pól w rekordzie zgadza się z kolejnością w menu modułu.
-        // Para plików `trigger_max.bin` / `trigger_min.bin` (2026-11-21):
-        // wszystkie parametry wejścia TRIG IN 1 head wykręcone na maksimum,
-        // a potem na minimum. Zmieniły się WYŁĄCZNIE bajty +0x01…+0x0A
-        // pierwszego rekordu — pozostałe trzy rekordy nie drgnęły, co
-        // potwierdza i granice rekordu, i to, że ustawienia są per trigger.
-        //
-        // Mapa rekordu po TRZECH seriach pomiarów. Trzecia (plik
-        // `trzy-drobiazgi.bin`: zmieniony jeden parametr naraz) obaliła dwa
-        // przypisania z serii drugiej — i to jest tu najważniejsza lekcja.
-        //
-        // Pułapka była taka: przy maksimum wyświetlacz pokazywał
-        // „Retrig Cancel 16" i „Rim Gain 8.0", a w pliku stały obok siebie
-        // bajty 40 i 16. Przypisanie 16 do Rim Gain (skala ÷2) i 40 do Retrig
-        // Cancel wyglądało spójnie i było BŁĘDNE. Test, w którym zmienił się
-        // JEDEN parametr, pokazał co innego: ustawienie Retrig Cancel na 8
-        // zmieniło bajt +0x06 z 16 na 8, czyli to Retrig Cancel, skala 1:1,
-        // zakres 1…16 — dokładnie taki, jaki ten parametr ma u Rolanda.
-        //
-        //   +0x00  Input (HEAD&RIM / PADx2)   nietknięte we wszystkich testach
-        //   +0x01  Type            raw 1…31   <- NIE do edycji, patrz niżej
-        //   +0x02  Sensitivity     raw 1…32   1:1
-        //   +0x03  Threshold       raw 0…31   1:1 (wyświetlacz 31 = raw 31)
-        //   +0x04  Curve           raw 0…6    raw 6 = LOUD2, ostatnia na liście
-        //   +0x05  ?               zmienia się RAZEM Z TYPE, nie ustawiany ręcznie
-        //   +0x06  Retrig Cancel   raw 1…16   1:1, dwa zgodne punkty (16 i 8)
-        //   +0x07  ?               zmienia się RAZEM Z TYPE, nie ustawiany ręcznie
-        //   +0x08  XTLK Cancel     raw 20…80  1:1, w procentach (80% i 40%)
-        //   +0x09  +0x0A           raw 0…80   Rim Gain i H/R Adjust,
-        //                                     kolejność nierozstrzygnięta
-        //   +0x0B  ?               w bazie 2, we wszystkich testach 0
-        //
-        // Rim Gain i H/R Adjust zostają NIEZMAPOWANE. Przy maksimum oba
-        // pokazywały wartości dające raw 80 (8.0 przy dzielniku 10 oraz 80
-        // wprost), więc z samych skrajności nie da się ich rozróżnić —
-        // a zgadywanie przy tym rekordzie zdążyło się już raz zemścić.
-        //
-        // `Type` zostaje poza edycją: instrukcja mówi, a Arek potwierdził
-        // z praktyki, że zmiana typu pada przestawia wartości pozostałych
-        // parametrów. Widać to zresztą wprost w pliku — bajty +0x05 i +0x07
-        // ruszają się wyłącznie razem z Type i nikt ich ręcznie nie ustawia.
-        // Edytor pliku nie zna tablicy wartości domyślnych dla każdego typu,
-        // więc zapisanie samego `Type` zostawiłoby komplet parametrów od
-        // poprzedniego pada.
-        // Nazwa backupu — ta, którą moduł pokazuje na liście przy BACKUP LOAD.
-        //
-        // Wyszła z oglądania nagłówka, nie z pomiaru różnicowego. Po magicznym
-        // „TM-2" stoi znacznik „BK", a od 0x0A idzie osiem znaków ASCII
-        // dopełnionych spacjami. Potwierdzenie przyszło z dwóch stron: bajt
-        // 0x0A był jednym z dwóch nierozpoznanych w całym pliku (0x42 „B"
-        // w jednym backupie, 0x43 „C" w innym — jedno naciśnięcie [+] przy
-        // zmianie nazwy), a Arek potwierdził, że nazwę backupu zmieniał.
-        //
-        // Dopełnienie spacją zgadza się z tym, jak moduł trzyma krótkie nazwy
-        // kitów (sprawdzone: „Cowbells   " ma 0x20 na końcu, nie zera), więc
-        // nasz zapis pól ASCII robi dokładnie to samo co sprzęt.
-        //
-        // DŁUGOŚĆ 8 JEST HIPOTEZĄ. Po ósmym znaku stoją dwa bajty 0x20,
-        // a potem zera — czyli pole może być dłuższe, a te spacje to już
-        // dopełnienie czegoś innego. Dlatego trzymamy ostrożniejszą wartość:
-        // za krótkie pole odmówi dłuższej nazwy (błąd widoczny, odwracalny),
-        // za długie wpisałoby znaki w sąsiednie, nieznane bajty nagłówka.
-        layout.globalFields.append(
-            FieldSpec(
-                id: "file.backupName",
-                label: "Backup Name",
-                scope: .global,
-                group: .system,
-                offset: 0x0A,
-                encoding: .ascii(length: 8),
-                note: "Nazwa, pod którą moduł pokazuje ten backup na liście"
-                    + " BACKUP LOAD. Osiem znaków ASCII, dopełnianych spacjami."
-                    + " Długość przyjęta ostrożnie — patrz komentarz w kodzie."
-            )
-        )
-
-        // Wskaźnik bieżącego kitu. Zmierzony 2026-09-04: w teście zrobionym
-        // na kicie 40 ten bajt pokazał 0x27, czyli 39 — numer kitu liczony
-        // od zera. Wcześniejsze próbki (0 i 1) nie pozwalały tego odróżnić
-        // od flagi albo bitmapy.
-        layout.currentKitPointerOffset = 0x36
-
-        // Typ efektu kitu siedzi pod +0x18 bloku kitu. Zmierzone serią
-        // max2/min2: REVERB to 19, THRU to 0, a przy THRU cała reszta strefy
-        // efektu zeruje się co do bajtu. Czyli parametry efektu nie są
-        // stałymi polami — ich znaczenie zależy od typu, dokładnie tak jak
-        // przy typie pada.
-        //
-        // Dlatego tego pola tu NIE MA. Zapisanie samego typu zostawiłoby
-        // w pliku komplet parametrów poprzedniego efektu, a edytor nie zna
-        // tablic wartości domyślnych. Adres jest w `pola.json` i widać go
-        // w inspektorze heks.
-
-        let trigUstawieniaOd = 0x40
-        let trigUstawieniaKrok = 15
-        let nazwyTrigerow = ["TRIG IN 1 head", "TRIG IN 1 rim",
-                             "TRIG IN 2 head", "TRIG IN 2 rim"]
-
-        /// Pola rekordu ustawień wejścia: offset w rekordzie, etykieta,
-        /// identyfikator, etykietę, zakres, sposób wyświetlania i notatkę.
-        /// Pola rekordu ustawień wejścia: offset w rekordzie, identyfikator,
-        /// etykietę, zakres, sposób wyświetlania i notatkę.
-        let polaWejscia: [(Int, String, String, Int, Int, FieldDisplay?, String)] = [
-            (0x02, "sensitivity", "Sensitivity", 1, 32, nil,
-             "Skala 1:1 — wyświetlacz 32 przy surowym 32. Minimum"
-                + " potwierdzone pomiarem `trigger_min.bin`: 1."),
-            (0x03, "threshold", "Threshold", 0, 31, nil,
-             "Skala 1:1 — wyświetlacz 31 przy surowym 31. Zakres 0…31"
-                + " z pary max/min."),
-            (0x04, "curve", "Curve", 0, 6, nil,
-             "Siedem krzywych, raw 0…6. Zmierzone: raw 6 to LOUD2, czyli"
-                + " ostatnia pozycja listy. Stara instrukcja wymienia tylko"
-                + " pięć krzywych (LINEAR, LOG1, LOG2, LOUD1, LOUD2) —"
-                + " firmware ma ich więcej, a nazw dwóch środkowych nie"
-                + " znamy. Dlatego pole jest liczbą, a nie listą wyboru:"
-                + " lista z dziurami kłamałaby bardziej niż goły numer."),
-            (0x06, "retrigCancel", "Retrig Cancel", 1, 16, nil,
-             "Skala 1:1, dwa zgodne punkty: wyświetlacz 16 przy surowym 16"
-                + " i wyświetlacz 8 przy surowym 8. Zakres 1…16 — typowy dla"
-                + " tego parametru u Rolanda. KOREKTA: wcześniej pole było"
-                + " przypisane do +0x05 i uznane za nieliniowe; to był błąd"
-                + " wzięty z serii, w której zmieniało się wszystko naraz."),
-            (0x08, "xtlkCancel", "XTLK Cancel", 20, 80, nil,
-             "Tłumienie przesłuchu, w procentach. Skala 1:1, dwa zgodne"
-                + " punkty: 80% przy surowym 80 i 40% przy surowym 40."
-                + " Minimum surowe 20. KOREKTA: wcześniej ten bajt był"
-                + " przypisany do H/R Adjust — obaliło to ustawienie samego"
-                + " XTLK Cancel, które zmieniło dokładnie ten bajt."),
-        ]
-
-        for (numer, nazwa) in nazwyTrigerow.enumerated() {
-            let baza = trigUstawieniaOd + numer * trigUstawieniaKrok
-            // Nazwy `dolny`/`gorny`, a nie `min`/`max` — te drugie zasłoniłyby
-            // globalne funkcje `min`/`max` Swifta w całym ciele pętli.
-            for (wRekordzie, nazwaPola, etykieta, dolny, gorny, pokazJako, notatka) in polaWejscia {
-                layout.globalFields.append(
-                    FieldSpec(
-                        id: "trigset.\(numer + 1).\(nazwaPola)",
-                        label: "\(etykieta) — \(nazwa)",
-                        scope: .global,
-                        group: .triggerInput,
-                        offset: baza + wRekordzie,
-                        encoding: .unsigned(min: dolny, max: gorny),
-                        note: notatka
-                            + " Ustawienie globalne modułu, nie kitu: zmiana"
-                            + " zrobiona przy wybranym kicie 40 trafiła"
-                            + " w ten sam bajt.",
-                        display: pokazJako
-                    )
-                )
-            }
-        }
-
-        // Pola GNIAZDA, a nie pojedynczego triggera. Zapisane w rekordzie
-        // HEAD każdego gniazda (rekord 1 dla TRIG IN 1, rekord 3 dla TRIG IN 2).
-        //
-        // Zmierzone w dwóch krokach, każdy zmieniał dokładnie jedną rzecz
-        // i każdy dał dokładnie jeden bajt:
-        //   input-headrim.bin   Input PADx2 -> HEAD&RIM   +0x00: 1 -> 0
-        //   rimgain.bin         Rim Gain -> 2.0            +0x0A: 15 -> 20
-        //
-        // Zmiana Input nie przestawiła ŻADNEGO innego bajtu — w odróżnieniu od
-        // Type. Dlatego Input może być edytowalny bez obaw o zostawienie
-        // w pliku niespójnego kompletu parametrów.
-        //
-        // Rekordy RIM (2 i 4) mają pod tymi offsetami własne wartości, ale ich
-        // znaczenia nie zmierzyliśmy — więc nie wystawiamy ich do edycji.
-        // Po wpadce z Mono/Poly (wniosek z wykluczenia okazał się fałszywy)
-        // mapujemy tylko to, co zmierzone wprost.
-        //
-        // H/R Adjust pod +0x09 — potwierdzony ODCZYTEM z wyświetlacza, a nie
-        // wykluczeniem: bajt pokazywał 31 i moduł pokazał „H/R Adjust 31".
-        // Kusiło, żeby przypisać go wcześniej, z wykluczenia (Rim Gain był już
-        // zmierzony pod +0x0A), ale w grze był też Noise Cancel — on również
-        // znika przy PADx2. Rozstrzygnęło dopiero porównanie z wyświetlaczem.
-        //
-        // Noise Cancel nadal bez adresu.
-        let gniazda: [(rekord: Int, nazwa: String)] = [(0, "TRIG IN 1"), (2, "TRIG IN 2")]
-        for (rekord, nazwa) in gniazda {
-            let baza = trigUstawieniaOd + rekord * trigUstawieniaKrok
-            let numer = rekord / 2 + 1
-
-            layout.globalFields.append(
-                FieldSpec(
-                    id: "jack.\(numer).input",
-                    label: "Input — \(nazwa)",
-                    scope: .global,
-                    group: .triggerInput,
-                    offset: baza + 0x00,
-                    encoding: .enumeration(values: ["HEAD&RIM", "PADx2"]),
-                    note: "Tryb gniazda: kabel head/rim albo dwa osobne pady."
-                        + " Zmierzone wprost: 0 = HEAD&RIM, 1 = PADx2"
-                        + " (wyświetlacz potwierdził PADx2 przy wartości 1)."
-                        + " Zmiana nie przestawia innych parametrów. Przy PADx2"
-                        + " moduł pokazuje \"--\" przy Rim Gain, H/R Adjust"
-                        + " i Noise Cancel — te parametry wtedy nie działają."
-                )
-            )
-
-            layout.globalFields.append(
-                FieldSpec(
-                    id: "jack.\(numer).rimGain",
-                    label: "Rim Gain — \(nazwa)",
-                    scope: .global,
-                    group: .triggerInput,
-                    offset: baza + 0x0A,
-                    encoding: .unsigned(min: 0, max: 80),
-                    note: "Czułość obręczy. Wyświetlacz pokazuje DZIESIĄTĄ"
-                        + " część wartości surowej: raw 20 to 2.0, raw 80 to"
-                        + " 8.0. Zmierzone wprost (jeden parametr naraz) plus"
-                        + " maksimum z serii max/min. Działa tylko przy"
-                        + " Input = HEAD&RIM. KOREKTA: wcześniej to pole było"
-                        + " przypisane do +0x06 ze skalą ÷2 — tamto okazało"
-                        + " się Retrig Cancel.",
-                    display: .scaled(divisor: 10, fractionDigits: 1, unit: "")
-                )
-            )
-
-            layout.globalFields.append(
-                FieldSpec(
-                    id: "jack.\(numer).hrAdjust",
-                    label: "H/R Adjust — \(nazwa)",
-                    scope: .global,
-                    group: .triggerInput,
-                    offset: baza + 0x09,
-                    encoding: .unsigned(min: 0, max: 80),
-                    note: "Jak łatwo pad rozróżnia uderzenie w naciąg od"
-                        + " uderzenia w obręcz. Skala 1:1 — potwierdzone"
-                        + " odczytem: wyświetlacz 31 przy surowym 31. Zakres"
-                        + " 0…80 z serii max/min. Działa tylko przy"
-                        + " Input = HEAD&RIM."
-                )
-            )
-
-            layout.globalFields.append(
-                FieldSpec(
-                    id: "jack.\(numer).noiseCancel",
-                    label: "Noise Cancel — \(nazwa)",
-                    scope: .global,
-                    group: .triggerInput,
-                    offset: baza + 0x0B,
-                    encoding: .unsigned(min: 0, max: 5),
-                    note: "Zmierzone wprost (`noise.bin`): przy RT-30K wyświetlacz"
-                        + " pokazał 2 przy bajcie 2, a ustawienie 5 dało bajt 5 —"
-                        + " skala 1:1. Zakres z wyświetlacza: OFF…5. OFF = 0 jest"
-                        + " WYWNIOSKOWANE (jedyna wartość przed 1 przy skali 1:1),"
-                        + " nie zmierzone. Moduł pokazuje to pole tylko przy"
-                        + " Input = HEAD&RIM i typach RT-30K / RT-30HR — i tylko"
-                        + " te dwa typy mają tu wartość domyślną różną od zera.",
-                    display: .offWhenZero
-                )
-            )
-        }
-
         return layout
     }
 
@@ -961,6 +698,277 @@ extension BackupLayout {
                     + " zostaje niezmapowane."
             )
         )
+
+        // ---- Pola zmierzone w nagłówku i w rekordach wejść ----
+        // Do 2026-11-23 ten blok stał przez pomyłkę w `unmappedTM2` (wstawiony
+        // tam przy jednej z wcześniejszych łatek). Kompilował się i działał,
+        // bo `mapped2026_09_02` startuje z `unmappedTM2` — ale układ „nic
+        // jeszcze nie wiem" udawał wtedy, że zna adresy. Wyłapały to testy
+        // dopiero w pierwszym pełnym przebiegu CI na macos-15. Kolejność pól
+        // na liście bez zmian.
+
+        // USTAWIENIA WEJŚĆ TRIGGEROWYCH — globalne, nie kitowe.
+        //
+        // Strefa 0x40…0x7B to cztery rekordy po 15 B, po jednym na trigger
+        // (1 head, 1 rim, 2 head, 2 rim). Że są globalne, wyszło dwojako:
+        // nie jadą razem z kitem przy przestawianiu kitów, a zmiana zrobiona
+        // na kicie 40 wylądowała w rekordzie pierwszym. To jest spójne z tym,
+        // jak działa sprzęt: czułość zależy od pada wpiętego w gniazdo,
+        // a nie od tego, jakie brzmienie akurat gra.
+        //
+        // Kolejność pól w rekordzie zgadza się z kolejnością w menu modułu.
+        // Para plików `trigger_max.bin` / `trigger_min.bin` (2026-11-21):
+        // wszystkie parametry wejścia TRIG IN 1 head wykręcone na maksimum,
+        // a potem na minimum. Zmieniły się WYŁĄCZNIE bajty +0x01…+0x0A
+        // pierwszego rekordu — pozostałe trzy rekordy nie drgnęły, co
+        // potwierdza i granice rekordu, i to, że ustawienia są per trigger.
+        //
+        // Mapa rekordu po TRZECH seriach pomiarów. Trzecia (plik
+        // `trzy-drobiazgi.bin`: zmieniony jeden parametr naraz) obaliła dwa
+        // przypisania z serii drugiej — i to jest tu najważniejsza lekcja.
+        //
+        // Pułapka była taka: przy maksimum wyświetlacz pokazywał
+        // „Retrig Cancel 16" i „Rim Gain 8.0", a w pliku stały obok siebie
+        // bajty 40 i 16. Przypisanie 16 do Rim Gain (skala ÷2) i 40 do Retrig
+        // Cancel wyglądało spójnie i było BŁĘDNE. Test, w którym zmienił się
+        // JEDEN parametr, pokazał co innego: ustawienie Retrig Cancel na 8
+        // zmieniło bajt +0x06 z 16 na 8, czyli to Retrig Cancel, skala 1:1,
+        // zakres 1…16 — dokładnie taki, jaki ten parametr ma u Rolanda.
+        //
+        //   +0x00  Input (HEAD&RIM / PADx2)   nietknięte we wszystkich testach
+        //   +0x01  Type            raw 1…31   <- NIE do edycji, patrz niżej
+        //   +0x02  Sensitivity     raw 1…32   1:1
+        //   +0x03  Threshold       raw 0…31   1:1 (wyświetlacz 31 = raw 31)
+        //   +0x04  Curve           raw 0…6    raw 6 = LOUD2, ostatnia na liście
+        //   +0x05  ?               zmienia się RAZEM Z TYPE, nie ustawiany ręcznie
+        //   +0x06  Retrig Cancel   raw 1…16   1:1, dwa zgodne punkty (16 i 8)
+        //   +0x07  ?               zmienia się RAZEM Z TYPE, nie ustawiany ręcznie
+        //   +0x08  XTLK Cancel     raw 20…80  1:1, w procentach (80% i 40%)
+        //   +0x09  +0x0A           raw 0…80   Rim Gain i H/R Adjust,
+        //                                     kolejność nierozstrzygnięta
+        //   +0x0B  ?               w bazie 2, we wszystkich testach 0
+        //
+        // Rim Gain i H/R Adjust zostają NIEZMAPOWANE. Przy maksimum oba
+        // pokazywały wartości dające raw 80 (8.0 przy dzielniku 10 oraz 80
+        // wprost), więc z samych skrajności nie da się ich rozróżnić —
+        // a zgadywanie przy tym rekordzie zdążyło się już raz zemścić.
+        //
+        // `Type` zostaje poza edycją: instrukcja mówi, a Arek potwierdził
+        // z praktyki, że zmiana typu pada przestawia wartości pozostałych
+        // parametrów. Widać to zresztą wprost w pliku — bajty +0x05 i +0x07
+        // ruszają się wyłącznie razem z Type i nikt ich ręcznie nie ustawia.
+        // Edytor pliku nie zna tablicy wartości domyślnych dla każdego typu,
+        // więc zapisanie samego `Type` zostawiłoby komplet parametrów od
+        // poprzedniego pada.
+        // Nazwa backupu — ta, którą moduł pokazuje na liście przy BACKUP LOAD.
+        //
+        // Wyszła z oglądania nagłówka, nie z pomiaru różnicowego. Po magicznym
+        // „TM-2" stoi znacznik „BK", a od 0x0A idzie osiem znaków ASCII
+        // dopełnionych spacjami. Potwierdzenie przyszło z dwóch stron: bajt
+        // 0x0A był jednym z dwóch nierozpoznanych w całym pliku (0x42 „B"
+        // w jednym backupie, 0x43 „C" w innym — jedno naciśnięcie [+] przy
+        // zmianie nazwy), a Arek potwierdził, że nazwę backupu zmieniał.
+        //
+        // Dopełnienie spacją zgadza się z tym, jak moduł trzyma krótkie nazwy
+        // kitów (sprawdzone: „Cowbells   " ma 0x20 na końcu, nie zera), więc
+        // nasz zapis pól ASCII robi dokładnie to samo co sprzęt.
+        //
+        // DŁUGOŚĆ 8 JEST HIPOTEZĄ. Po ósmym znaku stoją dwa bajty 0x20,
+        // a potem zera — czyli pole może być dłuższe, a te spacje to już
+        // dopełnienie czegoś innego. Dlatego trzymamy ostrożniejszą wartość:
+        // za krótkie pole odmówi dłuższej nazwy (błąd widoczny, odwracalny),
+        // za długie wpisałoby znaki w sąsiednie, nieznane bajty nagłówka.
+        layout.globalFields.append(
+            FieldSpec(
+                id: "file.backupName",
+                label: "Backup Name",
+                scope: .global,
+                group: .system,
+                offset: 0x0A,
+                encoding: .ascii(length: 8),
+                note: "Nazwa, pod którą moduł pokazuje ten backup na liście"
+                    + " BACKUP LOAD. Osiem znaków ASCII, dopełnianych spacjami."
+                    + " Długość przyjęta ostrożnie — patrz komentarz w kodzie."
+            )
+        )
+
+        // Wskaźnik bieżącego kitu. Zmierzony 2026-09-04: w teście zrobionym
+        // na kicie 40 ten bajt pokazał 0x27, czyli 39 — numer kitu liczony
+        // od zera. Wcześniejsze próbki (0 i 1) nie pozwalały tego odróżnić
+        // od flagi albo bitmapy.
+        layout.currentKitPointerOffset = 0x36
+
+        // Typ efektu kitu siedzi pod +0x18 bloku kitu. Zmierzone serią
+        // max2/min2: REVERB to 19, THRU to 0, a przy THRU cała reszta strefy
+        // efektu zeruje się co do bajtu. Czyli parametry efektu nie są
+        // stałymi polami — ich znaczenie zależy od typu, dokładnie tak jak
+        // przy typie pada.
+        //
+        // Dlatego tego pola tu NIE MA. Zapisanie samego typu zostawiłoby
+        // w pliku komplet parametrów poprzedniego efektu, a edytor nie zna
+        // tablic wartości domyślnych. Adres jest w `pola.json` i widać go
+        // w inspektorze heks.
+
+        let trigUstawieniaOd = 0x40
+        let trigUstawieniaKrok = 15
+        let nazwyTrigerow = ["TRIG IN 1 head", "TRIG IN 1 rim",
+                             "TRIG IN 2 head", "TRIG IN 2 rim"]
+
+        /// Pola rekordu ustawień wejścia: offset w rekordzie, etykieta,
+        /// identyfikator, etykietę, zakres, sposób wyświetlania i notatkę.
+        /// Pola rekordu ustawień wejścia: offset w rekordzie, identyfikator,
+        /// etykietę, zakres, sposób wyświetlania i notatkę.
+        let polaWejscia: [(Int, String, String, Int, Int, FieldDisplay?, String)] = [
+            (0x02, "sensitivity", "Sensitivity", 1, 32, nil,
+             "Skala 1:1 — wyświetlacz 32 przy surowym 32. Minimum"
+                + " potwierdzone pomiarem `trigger_min.bin`: 1."),
+            (0x03, "threshold", "Threshold", 0, 31, nil,
+             "Skala 1:1 — wyświetlacz 31 przy surowym 31. Zakres 0…31"
+                + " z pary max/min."),
+            (0x04, "curve", "Curve", 0, 6, nil,
+             "Siedem krzywych, raw 0…6. Zmierzone: raw 6 to LOUD2, czyli"
+                + " ostatnia pozycja listy. Stara instrukcja wymienia tylko"
+                + " pięć krzywych (LINEAR, LOG1, LOG2, LOUD1, LOUD2) —"
+                + " firmware ma ich więcej, a nazw dwóch środkowych nie"
+                + " znamy. Dlatego pole jest liczbą, a nie listą wyboru:"
+                + " lista z dziurami kłamałaby bardziej niż goły numer."),
+            (0x06, "retrigCancel", "Retrig Cancel", 1, 16, nil,
+             "Skala 1:1, dwa zgodne punkty: wyświetlacz 16 przy surowym 16"
+                + " i wyświetlacz 8 przy surowym 8. Zakres 1…16 — typowy dla"
+                + " tego parametru u Rolanda. KOREKTA: wcześniej pole było"
+                + " przypisane do +0x05 i uznane za nieliniowe; to był błąd"
+                + " wzięty z serii, w której zmieniało się wszystko naraz."),
+            (0x08, "xtlkCancel", "XTLK Cancel", 20, 80, nil,
+             "Tłumienie przesłuchu, w procentach. Skala 1:1, dwa zgodne"
+                + " punkty: 80% przy surowym 80 i 40% przy surowym 40."
+                + " Minimum surowe 20. KOREKTA: wcześniej ten bajt był"
+                + " przypisany do H/R Adjust — obaliło to ustawienie samego"
+                + " XTLK Cancel, które zmieniło dokładnie ten bajt."),
+        ]
+
+        for (numer, nazwa) in nazwyTrigerow.enumerated() {
+            let baza = trigUstawieniaOd + numer * trigUstawieniaKrok
+            // Nazwy `dolny`/`gorny`, a nie `min`/`max` — te drugie zasłoniłyby
+            // globalne funkcje `min`/`max` Swifta w całym ciele pętli.
+            for (wRekordzie, nazwaPola, etykieta, dolny, gorny, pokazJako, notatka) in polaWejscia {
+                layout.globalFields.append(
+                    FieldSpec(
+                        id: "trigset.\(numer + 1).\(nazwaPola)",
+                        label: "\(etykieta) — \(nazwa)",
+                        scope: .global,
+                        group: .triggerInput,
+                        offset: baza + wRekordzie,
+                        encoding: .unsigned(min: dolny, max: gorny),
+                        note: notatka
+                            + " Ustawienie globalne modułu, nie kitu: zmiana"
+                            + " zrobiona przy wybranym kicie 40 trafiła"
+                            + " w ten sam bajt.",
+                        display: pokazJako
+                    )
+                )
+            }
+        }
+
+        // Pola GNIAZDA, a nie pojedynczego triggera. Zapisane w rekordzie
+        // HEAD każdego gniazda (rekord 1 dla TRIG IN 1, rekord 3 dla TRIG IN 2).
+        //
+        // Zmierzone w dwóch krokach, każdy zmieniał dokładnie jedną rzecz
+        // i każdy dał dokładnie jeden bajt:
+        //   input-headrim.bin   Input PADx2 -> HEAD&RIM   +0x00: 1 -> 0
+        //   rimgain.bin         Rim Gain -> 2.0            +0x0A: 15 -> 20
+        //
+        // Zmiana Input nie przestawiła ŻADNEGO innego bajtu — w odróżnieniu od
+        // Type. Dlatego Input może być edytowalny bez obaw o zostawienie
+        // w pliku niespójnego kompletu parametrów.
+        //
+        // Rekordy RIM (2 i 4) mają pod tymi offsetami własne wartości, ale ich
+        // znaczenia nie zmierzyliśmy — więc nie wystawiamy ich do edycji.
+        // Po wpadce z Mono/Poly (wniosek z wykluczenia okazał się fałszywy)
+        // mapujemy tylko to, co zmierzone wprost.
+        //
+        // H/R Adjust pod +0x09 — potwierdzony ODCZYTEM z wyświetlacza, a nie
+        // wykluczeniem: bajt pokazywał 31 i moduł pokazał „H/R Adjust 31".
+        // Kusiło, żeby przypisać go wcześniej, z wykluczenia (Rim Gain był już
+        // zmierzony pod +0x0A), ale w grze był też Noise Cancel — on również
+        // znika przy PADx2. Rozstrzygnęło dopiero porównanie z wyświetlaczem.
+        //
+        // Noise Cancel nadal bez adresu.
+        let gniazda: [(rekord: Int, nazwa: String)] = [(0, "TRIG IN 1"), (2, "TRIG IN 2")]
+        for (rekord, nazwa) in gniazda {
+            let baza = trigUstawieniaOd + rekord * trigUstawieniaKrok
+            let numer = rekord / 2 + 1
+
+            layout.globalFields.append(
+                FieldSpec(
+                    id: "jack.\(numer).input",
+                    label: "Input — \(nazwa)",
+                    scope: .global,
+                    group: .triggerInput,
+                    offset: baza + 0x00,
+                    encoding: .enumeration(values: ["HEAD&RIM", "PADx2"]),
+                    note: "Tryb gniazda: kabel head/rim albo dwa osobne pady."
+                        + " Zmierzone wprost: 0 = HEAD&RIM, 1 = PADx2"
+                        + " (wyświetlacz potwierdził PADx2 przy wartości 1)."
+                        + " Zmiana nie przestawia innych parametrów. Przy PADx2"
+                        + " moduł pokazuje \"--\" przy Rim Gain, H/R Adjust"
+                        + " i Noise Cancel — te parametry wtedy nie działają."
+                )
+            )
+
+            layout.globalFields.append(
+                FieldSpec(
+                    id: "jack.\(numer).rimGain",
+                    label: "Rim Gain — \(nazwa)",
+                    scope: .global,
+                    group: .triggerInput,
+                    offset: baza + 0x0A,
+                    encoding: .unsigned(min: 0, max: 80),
+                    note: "Czułość obręczy. Wyświetlacz pokazuje DZIESIĄTĄ"
+                        + " część wartości surowej: raw 20 to 2.0, raw 80 to"
+                        + " 8.0. Zmierzone wprost (jeden parametr naraz) plus"
+                        + " maksimum z serii max/min. Działa tylko przy"
+                        + " Input = HEAD&RIM. KOREKTA: wcześniej to pole było"
+                        + " przypisane do +0x06 ze skalą ÷2 — tamto okazało"
+                        + " się Retrig Cancel.",
+                    display: .scaled(divisor: 10, fractionDigits: 1, unit: "")
+                )
+            )
+
+            layout.globalFields.append(
+                FieldSpec(
+                    id: "jack.\(numer).hrAdjust",
+                    label: "H/R Adjust — \(nazwa)",
+                    scope: .global,
+                    group: .triggerInput,
+                    offset: baza + 0x09,
+                    encoding: .unsigned(min: 0, max: 80),
+                    note: "Jak łatwo pad rozróżnia uderzenie w naciąg od"
+                        + " uderzenia w obręcz. Skala 1:1 — potwierdzone"
+                        + " odczytem: wyświetlacz 31 przy surowym 31. Zakres"
+                        + " 0…80 z serii max/min. Działa tylko przy"
+                        + " Input = HEAD&RIM."
+                )
+            )
+
+            layout.globalFields.append(
+                FieldSpec(
+                    id: "jack.\(numer).noiseCancel",
+                    label: "Noise Cancel — \(nazwa)",
+                    scope: .global,
+                    group: .triggerInput,
+                    offset: baza + 0x0B,
+                    encoding: .unsigned(min: 0, max: 5),
+                    note: "Zmierzone wprost (`noise.bin`): przy RT-30K wyświetlacz"
+                        + " pokazał 2 przy bajcie 2, a ustawienie 5 dało bajt 5 —"
+                        + " skala 1:1. Zakres z wyświetlacza: OFF…5. OFF = 0 jest"
+                        + " WYWNIOSKOWANE (jedyna wartość przed 1 przy skali 1:1),"
+                        + " nie zmierzone. Moduł pokazuje to pole tylko przy"
+                        + " Input = HEAD&RIM i typach RT-30K / RT-30HR — i tylko"
+                        + " te dwa typy mają tu wartość domyślną różną od zera.",
+                    display: .offWhenZero
+                )
+            )
+        }
 
         return layout
     }

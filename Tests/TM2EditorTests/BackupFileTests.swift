@@ -438,8 +438,9 @@ final class BackupFileTests: XCTestCase {
     }
 
     /// H/R Adjust pod +0x09 — potwierdzony odczytem z wyświetlacza (31 = 31),
-    /// a nie wykluczeniem. Noise Cancel dalej bez adresu.
-    func testHRAdjustConfirmedByDisplayNoiseCancelStillUnknown() {
+    /// a nie wykluczeniem. Noise Cancel obok, pod +0x0B (zmierzony 22.11,
+    /// `noise.bin`) — wcześniej ten test pilnował, że jeszcze nie ma adresu.
+    func testHRAdjustConfirmedByDisplayNoiseCancelNextToIt() {
         let layout = BackupLayout.mapped2026_09_02
         let pole = layout.globalFields.first { $0.id == "jack.1.hrAdjust" }
         XCTAssertEqual(pole?.offset, 0x40 + 0x09)
@@ -449,8 +450,8 @@ final class BackupFileTests: XCTestCase {
         XCTAssertEqual(layout.globalFields.first { $0.id == "jack.2.hrAdjust" }?.offset,
                        0x40 + 2 * 15 + 0x09)
 
-        XCTAssertNil(layout.globalFields.first { $0.id.lowercased().contains("noisecancel") },
-                     "Noise Cancel nie ma jeszcze adresu.")
+        XCTAssertEqual(layout.globalFields.first { $0.id == "jack.1.noiseCancel" }?.offset,
+                       0x40 + 0x0B)
     }
 
     /// Pusta jednostka nie zostawia wiszącej spacji na końcu wartości.
@@ -498,7 +499,8 @@ final class BackupFileTests: XCTestCase {
         XCTAssertEqual(pole("trig.dynamics")?.offset, 0x10)
 
         // Note# zmierzone na górnej granicy: wyświetlacz 127, plik 127.
-        XCTAssertEqual(pole("trig.note")?.encoding.numericRange, 0...127)
+        // Dolna granica −1 = OFF (0xFFFF), zmierzone w serii min2 (wpis (w)).
+        XCTAssertEqual(pole("trig.note")?.encoding.numericRange, -1...127)
 
         // Dynamics to pierwsza lista nazw w tym projekcie. MAX = 4,
         // zmierzone; nazwy i kolejność z instrukcji.

@@ -28,13 +28,14 @@ struct FieldRow: View {
         HStack(alignment: .center, spacing: 16) {
             VStack(alignment: .leading, spacing: 3) {
                 Text(labelOverride ?? field.label)
-                    .font(.title3)
+                    .font(Styl.etykieta)
                     .foregroundStyle(field.isMapped ? .primary : .secondary)
 
                 if let detail = detailText {
                     Text(detail)
-                        .font(.caption)
-                        .foregroundStyle(.tertiary)
+                        .font(Styl.opis)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
 
@@ -99,6 +100,7 @@ struct FieldRow: View {
             }
             .labelsHidden()
             .controlSize(.large)
+            .font(Styl.wartosc)
         } else {
             kontrolkaWedlugKodowania
         }
@@ -109,7 +111,7 @@ struct FieldRow: View {
         switch field.encoding {
         case .ascii(let length):
             TextField("", text: textBinding)
-                .font(.title3)
+                .font(Styl.wartosc)
                 .textFieldStyle(.roundedBorder)
                 .focused($maTekstFokus)
                 .onSubmit { commitText() }
@@ -118,7 +120,7 @@ struct FieldRow: View {
 
         case .utf16LE(let length):
             TextField("", text: textBinding)
-                .font(.title3)
+                .font(Styl.wartosc)
                 .textFieldStyle(.roundedBorder)
                 .focused($maTekstFokus)
                 .onSubmit { commitText() }
@@ -139,6 +141,7 @@ struct FieldRow: View {
             }
             .labelsHidden()
             .controlSize(.large)
+            .font(Styl.wartosc)
 
         default:
             // Jeden wzór dla KAŻDEJ liczby: duża wartość do wpisania
@@ -244,26 +247,55 @@ struct FieldRow: View {
 
     // MARK: - Opis pod etykietą
 
+    /// Narzędzia mapowania włączone (View › Show Mapping Tools) — tylko wtedy
+    /// pod parametrem pokazujemy adres w pliku i surową wartość.
+    @AppStorage("TM2Editor.narzedziaMapowania") private var narzedziaMapowania = false
+
+    /// Opis pod nazwą parametru: zakres albo dostępne pozycje, tak jak
+    /// pokazuje je moduł. Adres w pliku (heks) tylko w trybie narzędzi
+    /// mapowania — dla grania jest bez znaczenia.
     private var detailText: String? {
         if !field.isMapped {
             return field.note
         }
-        guard let offset = editor.layout.absoluteOffset(for: field, kit: kit, trigger: trigger) else {
-            return nil
+        var parts: [String] = []
+        if let opis = opisZakresu { parts.append(opis) }
+        if narzedziaMapowania,
+           let offset = editor.layout.absoluteOffset(for: field, kit: kit, trigger: trigger) {
+            parts.append(String(format: "0x%X (%d)", offset, offset))
+            if let raw = rawValueText { parts.append("raw \(raw)") }
         }
-        // Offset szesnastkowo I dziesiętnie. Szesnastkowy zgadza się z tym, co
-        // pokazuje inspektor heks i co wypisuje analizator różnicowy; dziesiętny
-        // jest po to, żeby nie trzeba było mieć kalkulatora w głowie przy
-        // porównywaniu z logami i notatkami z mapowania.
-        var parts = [String(format: "0x%X (%d)", offset, offset)]
-        if let range = field.encoding.numericRange, !field.encoding.isTextual {
-            parts.append("\(range.lowerBound)…\(range.upperBound)")
-        }
-        // Surowa liczba z pliku — tylko gdy różni się od tego, co widać
-        // w polu. Przy mapowaniu trzeba wiedzieć, co naprawdę siedzi w pliku.
-        if let raw = rawValueText {
-            parts.append("raw \(raw)")
-        }
-        return parts.joined(separator: "  ·  ")
+        return parts.isEmpty ? nil : parts.joined(separator: "  ·  ")
     }
+
+    /// Zakres liczby albo lista pozycji po przecinkach. Długie listy skrócone.
+    private var opisZakresu: String? {
+        if field.id == "trig.instrument" {
+            return "162 internal sounds or a WAV file from the SD card"
+        }
+        switch field.encoding {
+        case .ascii(let length):
+            return "Up to \(length) characters"
+        case .utf16LE(let length):
+            return "Up to \(length / 2) characters"
+        case .boolean, .bit:
+            return nil
+        case .enumeration(let values):
+            return Self.lista(values)
+        default:
+            break
+        }
+        if let pozycje = pozycjeListy {
+            return Self.lista(pozycje)
+        }
+        guard let zakres = field.encoding.numericRange else { return nil }
+        return wyswietlanie.text(for: zakres.lowerBound) + " … " + wyswietlanie.text(for: zakres.upperBound)
+    }
+
+    private static func lista(_ pozycje: [String]) -> String {
+        guard pozycje.count > 12 else { return pozycje.joined(separator: ", ") }
+        return pozycje.prefix(6).joined(separator: ", ") + ", … " + (pozycje.last ?? "")
+            + "  (\(pozycje.count) options)"
+    }
+
 }

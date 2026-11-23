@@ -57,7 +57,7 @@ struct PoleLiczbowe: View {
 
     private var poleTekstowe: some View {
         TextField("", text: $tekst)
-            .font(.system(.title2, design: .monospaced))
+            .font(Styl.liczba)
             .multilineTextAlignment(.trailing)
             .textFieldStyle(.roundedBorder)
             .focused($maFokus)

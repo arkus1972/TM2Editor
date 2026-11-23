@@ -16,11 +16,11 @@ struct WierszEfektuKitu: View {
         HStack(alignment: .center, spacing: 16) {
             VStack(alignment: .leading, spacing: 3) {
                 Text("Kit Effect")
-                    .font(.title3)
+                    .font(Styl.etykieta)
                 Text("Changing it resets the effect's parameters to their defaults, "
                      + "as on the module.")
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
+                    .font(Styl.opis)
+                    .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
@@ -42,6 +42,7 @@ struct WierszEfektuKitu: View {
                     }
                     .labelsHidden()
                     .controlSize(.large)
+                    .font(Styl.wartosc)
                 } else {
                     Text("unknown effect")
                         .font(.callout)

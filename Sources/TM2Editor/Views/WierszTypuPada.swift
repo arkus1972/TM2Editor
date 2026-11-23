@@ -15,11 +15,11 @@ struct WierszTypuPada: View {
         HStack(alignment: .center, spacing: 16) {
             VStack(alignment: .leading, spacing: 3) {
                 Text("Pad Type")
-                    .font(.title3)
+                    .font(Styl.etykieta)
                 Text("Changing it resets the settings below to the pad's defaults, "
                      + "as on the module. XTLK Cancel and Input stay as they are.")
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
+                    .font(Styl.opis)
+                    .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
@@ -41,6 +41,7 @@ struct WierszTypuPada: View {
                     }
                     .labelsHidden()
                     .controlSize(.large)
+                    .font(Styl.wartosc)
                 } else {
                     // Kod spoza zmierzonej tablicy: nie nazywamy go i nie dajemy
                     // zmieniać — nie wiemy, co moduł by z tym zrobił.

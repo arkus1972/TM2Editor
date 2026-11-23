@@ -66,6 +66,7 @@ struct WyborBrzmienia: View {
         }
         .labelsHidden()
         .controlSize(.large)
+        .font(Styl.wartosc)
     }
 
     private var przyciskPliku: some View {

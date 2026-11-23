@@ -43,48 +43,73 @@ struct PoleLiczbowe: View {
     /// zapisu świeciłby się, choć nie ma nic do zapisania.
     @State private var zmianaProgramowa = false
 
+    // Ciało rozbite na części celowo. Na macos-15 (nowszy kompilator) jedno
+    // długie wyrażenie — pole tekstowe z siedmioma modyfikatorami, stepper
+    // i podpowiedź sklejana pięcioma „+" — kończyło się błędem „unable to
+    // type-check this expression in reasonable time". Stary kompilator to
+    // przepuszczał. Osobne właściwości z jawnym typem dają mu krótkie kawałki.
     var body: some View {
         HStack(spacing: 8) {
-            TextField("", text: $tekst)
-                .font(.system(.title2, design: .monospaced))
-                .multilineTextAlignment(.trailing)
-                .textFieldStyle(.roundedBorder)
-                .focused($maFokus)
-                .onSubmit { zatwierdz() }
-                .onChange(of: maFokus) { fokus in
-                    if fokus {
-                        celEdycji = ustaw
-                    } else {
-                        zatwierdz()
-                    }
-                }
-                .onChange(of: tekst) { nowy in
-                    if zmianaProgramowa {
-                        zmianaProgramowa = false
-                        return
-                    }
-                    guard maFokus else { return }
-                    if let liczba = wyswietlanie.parse(nowy), zakres.contains(liczba) {
-                        zapamietajNiezatwierdzone(liczba)
-                    } else {
-                        zapomnijNiezatwierdzone()
-                    }
-                }
-                .onChange(of: wartosc) { nowa in
-                    // Zmiana z zewnątrz (−/+, cofnięcie, inny kit) — ale nie
-                    // w trakcie pisania, żeby nie wyrywać użytkownikowi tekstu.
-                    if !maFokus { pokaz(wyswietlanie.text(for: nowa)) }
-                }
-                .onAppear { pokaz(wyswietlanie.text(for: wartosc)) }
-                .help("Type a value as the module shows it, e.g. "
-                      + przyklad + ". Range: "
-                      + wyswietlanie.text(for: zakres.lowerBound) + " … "
-                      + wyswietlanie.text(for: zakres.upperBound) + ".")
-
-            Stepper("", value: Binding(get: { wartosc }, set: { ustaw($0) }), in: zakres)
-                .labelsHidden()
-                .controlSize(.large)
+            poleTekstowe
+            stepper
         }
+    }
+
+    private var poleTekstowe: some View {
+        TextField("", text: $tekst)
+            .font(.system(.title2, design: .monospaced))
+            .multilineTextAlignment(.trailing)
+            .textFieldStyle(.roundedBorder)
+            .focused($maFokus)
+            .onSubmit { zatwierdz() }
+            .onChange(of: maFokus) { fokus in zmianaFokusu(fokus) }
+            .onChange(of: tekst) { nowy in zmianaTekstu(nowy) }
+            .onChange(of: wartosc) { nowa in zmianaWartosci(nowa) }
+            .onAppear { pokaz(wyswietlanie.text(for: wartosc)) }
+            .help(podpowiedz)
+    }
+
+    private var stepper: some View {
+        Stepper("", value: wiazanieSteppera, in: zakres)
+            .labelsHidden()
+            .controlSize(.large)
+    }
+
+    private var wiazanieSteppera: Binding<Int> {
+        Binding(get: { wartosc }, set: { ustaw($0) })
+    }
+
+    private var podpowiedz: String {
+        let od: String = wyswietlanie.text(for: zakres.lowerBound)
+        let doo: String = wyswietlanie.text(for: zakres.upperBound)
+        return "Type a value as the module shows it, e.g. \(przyklad). Range: \(od) … \(doo)."
+    }
+
+    private func zmianaFokusu(_ fokus: Bool) {
+        if fokus {
+            celEdycji = ustaw
+        } else {
+            zatwierdz()
+        }
+    }
+
+    private func zmianaTekstu(_ nowy: String) {
+        if zmianaProgramowa {
+            zmianaProgramowa = false
+            return
+        }
+        guard maFokus else { return }
+        if let liczba = wyswietlanie.parse(nowy), zakres.contains(liczba) {
+            zapamietajNiezatwierdzone(liczba)
+        } else {
+            zapomnijNiezatwierdzone()
+        }
+    }
+
+    /// Zmiana z zewnątrz (−/+, cofnięcie, inny kit) — ale nie w trakcie
+    /// pisania, żeby nie wyrywać użytkownikowi tekstu.
+    private func zmianaWartosci(_ nowa: Int) {
+        if !maFokus { pokaz(wyswietlanie.text(for: nowa)) }
     }
 
     private var przyklad: String {

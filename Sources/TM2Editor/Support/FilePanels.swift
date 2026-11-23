@@ -57,8 +57,29 @@ extension AppModel {
         panel.directoryURL = projekt ?? URL(fileURLWithPath: "/Volumes", isDirectory: true)
         guard panel.runModal() == .OK, let wybrany = panel.url else { return }
 
-        editor.flushPendingText()
         let tm2 = ProjektTM2.tm2Docelowe(zWybranego: wybrany)
+        guard let raport = wykonajZapis(editor, waveProjektu: waveProjektu, tm2: tm2) else { return }
+
+        let alert = NSAlert()
+        alert.messageText = "Saved"
+        alert.informativeText = raport.opis
+            + "\n\nOn the module: BACKUP LOAD › \(raport.backup.lastPathComponent)."
+        alert.addButton(withTitle: "OK")
+        // Zapisane na Macu — od razu propozycja przeniesienia całości na kartę
+        // (prośba Arka: „teraz trzeba przenieść ręcznie").
+        let naKarcie = tm2.standardizedFileURL.path.hasPrefix("/Volumes/")
+        if !naKarcie {
+            alert.addButton(withTitle: "Copy to SD Card…")
+        }
+        if alert.runModal() == .alertSecondButtonReturn {
+            kopiujNaKarte()
+        }
+    }
+
+    /// Wspólny zapis: backup + sample do `tm2`, aktualizacja kopii roboczej,
+    /// zgaszenie plakietki zmian. `nil` przy błędzie (komunikat już pokazany).
+    private func wykonajZapis(_ editor: KitEditor, waveProjektu: URL, tm2: URL) -> ProjektTM2.Raport? {
+        editor.flushPendingText()
         do {
             let raport = try ProjektTM2.zapisz(editor.file, waveProjektu: waveProjektu, doTM2: tm2)
             // Kopia robocza założona przez edytor (backup luzem) też dostaje
@@ -68,15 +89,62 @@ extension AppModel {
             }
             editor.oznaczJakoZapisane()
             log.append(.info, raport.opis.replacingOccurrences(of: "\n", with: " "))
-            let alert = NSAlert()
-            alert.messageText = "Saved"
-            alert.informativeText = raport.opis
-                + "\n\nOn the module: BACKUP LOAD › \(raport.backup.lastPathComponent)."
-            alert.runModal()
+            return raport
         } catch {
             errorMessage = "Save failed: \(error.localizedDescription)"
-            log.append(.error, "Zapis projektu nie powiódł się: \(error)")
+            log.append(.error, "Zapis nie powiódł się: \(error)")
+            return nil
         }
+    }
+
+    /// File › Copy to SD Card… — backup pod kolejnym numerem i używane sample
+    /// prosto na podłączoną kartę TM-2. Jedna karta — tylko potwierdzenie;
+    /// kilka albo żadnej — wybór ręczny.
+    func kopiujNaKarte() {
+        guard let editor, projekt != nil, let waveProjektu = editor.folderWave else { return }
+        guard uzupelnijSampleProjektu() else { return }
+
+        let karty = ProjektTM2.podlaczoneKarty
+        var wybranaKarta: URL?
+        if karty.count == 1, let karta = karty.first {
+            let dysk = karta.deletingLastPathComponent().deletingLastPathComponent()
+            let alert = NSAlert()
+            alert.messageText = "Copy to the SD card “\(dysk.lastPathComponent)”?"
+            alert.informativeText = "The backup goes to ROLAND/TM-2/Backup under the next free "
+                + "number, the samples it uses to ROLAND/TM-2/WAVE. Nothing on the card is "
+                + "deleted or overwritten."
+            alert.addButton(withTitle: "Copy")
+            alert.addButton(withTitle: "Choose Another…")
+            alert.addButton(withTitle: "Cancel")
+            switch alert.runModal() {
+            case .alertFirstButtonReturn: wybranaKarta = karta
+            case .alertSecondButtonReturn: wybranaKarta = nil
+            default: return
+            }
+        }
+        if wybranaKarta == nil {
+            let panel = NSOpenPanel()
+            panel.title = "Choose the SD Card"
+            panel.message = karty.isEmpty
+                ? "No TM-2 card found. Insert the card (formatted in the TM-2) and choose it."
+                : "Choose the SD card to copy to."
+            panel.prompt = "Copy Here"
+            panel.canChooseFiles = false
+            panel.canChooseDirectories = true
+            panel.allowsMultipleSelection = false
+            panel.directoryURL = URL(fileURLWithPath: "/Volumes", isDirectory: true)
+            guard panel.runModal() == .OK, let wybrany = panel.url else { return }
+            wybranaKarta = ProjektTM2.tm2Docelowe(zWybranego: wybrany)
+        }
+        guard let tm2 = wybranaKarta, let raport = wykonajZapis(editor, waveProjektu: waveProjektu, tm2: tm2) else {
+            return
+        }
+        let alert = NSAlert()
+        alert.messageText = "Copied to the SD card"
+        alert.informativeText = raport.opis
+            + "\n\nEject the card in Finder before taking it out. "
+            + "On the module: BACKUP LOAD › \(raport.backup.lastPathComponent)."
+        alert.runModal()
     }
 
     private func zapiszSamPlik(_ editor: KitEditor) {

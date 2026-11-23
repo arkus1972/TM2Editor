@@ -117,6 +117,18 @@ final class ProjektTM2Tests: XCTestCase {
         XCTAssertTrue(ProjektTM2.brakujaceSample(w: bajty, wave: wave).isEmpty)
     }
 
+    /// Wykrywanie karty TM-2 wśród dysków: tylko te z ROLAND/TM-2.
+    func testWykrywanieKartTM2() throws {
+        let karta = baza.appendingPathComponent("NO NAME")
+        let pendrive = baza.appendingPathComponent("PENDRIVE")
+        try FileManager.default.createDirectory(at: karta.appendingPathComponent("ROLAND/TM-2/Backup"),
+                                                withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: pendrive.appendingPathComponent("Muzyka"),
+                                                withIntermediateDirectories: true)
+        let znalezione = ProjektTM2.kartyTM2(wsrod: [karta, pendrive])
+        XCTAssertEqual(znalezione.map(\.path), [karta.appendingPathComponent("ROLAND/TM-2").path])
+    }
+
     func testTM2DoceloweZRoznychWskazan() {
         let karta = baza.appendingPathComponent("KARTA")
         let tm2 = karta.appendingPathComponent("ROLAND/TM-2").path

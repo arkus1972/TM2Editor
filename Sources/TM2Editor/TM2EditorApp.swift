@@ -32,6 +32,11 @@ struct TM2EditorApp: App {
                 .keyboardShortcut("s", modifiers: [.command, .shift])
                 .disabled(!model.hasOpenFile)
 
+                Button("Copy to SD Card…") {
+                    model.kopiujNaKarte()
+                }
+                .disabled(model.projekt == nil)
+
                 Button("Find Missing Samples…") {
                     model.znajdzBrakujaceSample()
                 }

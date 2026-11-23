@@ -202,6 +202,27 @@ enum ProjektTM2 {
         return url.appendingPathComponent("ROLAND/TM-2", isDirectory: true)
     }
 
+    /// Karty TM-2 wśród podanych dysków: te, na których jest `ROLAND/TM-2`.
+    /// Zwraca folder `ROLAND/TM-2` każdej z nich.
+    static func kartyTM2(wsrod dyski: [URL]) -> [URL] {
+        dyski.compactMap { dysk in
+            let tm2 = dysk.appendingPathComponent("ROLAND/TM-2", isDirectory: true)
+            var folder: ObjCBool = false
+            guard FileManager.default.fileExists(atPath: tm2.path, isDirectory: &folder),
+                  folder.boolValue else { return nil }
+            return tm2
+        }
+    }
+
+    /// Podłączone teraz do Maca karty TM-2 (dyski z `ROLAND/TM-2`).
+    static var podlaczoneKarty: [URL] {
+        let dyski = FileManager.default.mountedVolumeURLs(
+            includingResourceValuesForKeys: [.volumeNameKey],
+            options: [.skipHiddenVolumes]) ?? []
+        // Dysk systemowy („/") pomijamy — karta to zawsze osobny wolumin.
+        return kartyTM2(wsrod: dyski.filter { $0.path != "/" })
+    }
+
     /// Kolejny wolny numer `BKUP-NNN.TM0` w folderze Backup.
     static func wolnaNazwaBackupu(w folder: URL) -> String? {
         let istniejace = (try? FileManager.default.contentsOfDirectory(atPath: folder.path)) ?? []

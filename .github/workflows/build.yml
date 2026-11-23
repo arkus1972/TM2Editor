@@ -26,7 +26,12 @@ permissions:
 jobs:
   build:
     name: Build and test
-    runs-on: macos-14
+    # macos-14 GitHub wycofał (zapowiedź 2026-10-01) — przebieg kończył się
+    # od razu błędem „configuration 'macos-14-arm64-us-default' is not
+    # supported", zanim cokolwiek się skompilowało. Obraz przypięty na sztywno,
+    # a nie macos-latest: zmiana obrazu to zmiana kompilatora, ma być widoczna
+    # w historii, a nie dziać się po cichu.
+    runs-on: macos-15
 
     steps:
       - name: Pobranie kodu

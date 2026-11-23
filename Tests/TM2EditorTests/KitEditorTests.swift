@@ -617,6 +617,30 @@ final class KitEditorTests: XCTestCase {
         XCTAssertEqual(editor.file.slice(at: kit7 + 0x1C, length: 2), [100, 0])
     }
 
+    /// Sample z karty: +0x02 slotu = 2 i ścieżka w tablicy za kitami, czytana
+    /// do pierwszego zera (za nim moduł zostawia śmieci). Układ jak w `wav-1.bin`.
+    func testSciezkaSamplaZKarty() {
+        var bytes = [UInt8](repeating: 0, count: 124_748)
+        let kit70 = 0x7C + 69 * 234 + 0x42
+        let wpis = { (slot: Int) in 0x5AFA + (69 * 4 + slot) * 256 }
+        bytes[kit70 + 0x02] = 2                            // head: karta
+        bytes.replaceSubrange(wpis(0)..<(wpis(0) + 16), with: Array("TEST_A.wav\0C.wav".utf8))
+        bytes[kit70 + 42 + 0x02] = 1                       // rim: wewnętrzne
+        bytes.replaceSubrange(wpis(1)..<(wpis(1) + 10), with: Array("TEST_B.wav".utf8))
+        bytes[kit70 + 84 + 0x02] = 2                       // 2 head: karta, podfolder
+        bytes.replaceSubrange(wpis(2)..<(wpis(2) + 16), with: Array("TESTY/TEST_C.wav".utf8))
+        bytes[kit70 + 126 + 0x02] = 2                      // 2 rim: karta, pusta ścieżka
+        let editor = KitEditor(file: BackupFile(bytes: bytes, layout: .mapped2026_09_02),
+                               log: EditorLog())
+        XCTAssertEqual(editor.sciezkaSampla(kit: 70, trigger: 1), "TEST_A.wav")
+        XCTAssertNil(editor.sciezkaSampla(kit: 70, trigger: 2), "Brzmienie wewnętrzne — bez ścieżki.")
+        XCTAssertEqual(editor.sciezkaSampla(kit: 70, trigger: 3), "TESTY/TEST_C.wav")
+        XCTAssertNil(editor.sciezkaSampla(kit: 70, trigger: 4))
+        XCTAssertNil(editor.sciezkaSampla(kit: 69, trigger: 1))
+        XCTAssertEqual(KitEditor.poczatekSciezekWav + 396 * 256, 124_748 - 16 - 66,
+                       "Tablica kończy się 66 B przed sumą MD5.")
+    }
+
     /// Nazwa instrumentu tylko przy brzmieniu wewnętrznym (+0x02 slotu = 1).
     func testBrzmienieWewnetrzneRozpoznawanePoBajcieBanku() {
         var bytes = [UInt8](repeating: 0, count: 124_748)

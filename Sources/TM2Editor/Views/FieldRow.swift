@@ -87,7 +87,18 @@ struct FieldRow: View {
 
     @ViewBuilder
     private var editorControl: some View {
-        if let pozycje = pozycjeListy {
+        if field.id == "trig.instrument",
+           let sciezka = editor.sciezkaSampla(kit: kit, trigger: trigger) {
+            // Pad gra plik WAV z karty. Pokazujemy go tak jak moduł — po
+            // nazwie. Zmiana sampla z edytora jeszcze nie działa (numer pod
+            // +0x00 przy samplach nie jest rozszyfrowany), więc tylko podgląd.
+            Label(sciezka, systemImage: "sdcard")
+                .font(.title3)
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .help("WAV file on the SD card: ROLAND/TM-2/WAVE/" + sciezka
+                      + ". Changing card samples in the editor is not supported yet.")
+        } else if let pozycje = pozycjeListy {
             Picker("", selection: numberBinding) {
                 ForEach(Array(pozycje.enumerated()), id: \.offset) { index, name in
                     Text(name).tag(index)

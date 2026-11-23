@@ -383,6 +383,9 @@ final class KitEditor: ObservableObject {
     /// Czy slot gra brzmienie wewnętrzne — wtedy numer instrumentu to pozycja
     /// na liście z Sound List i można pokazać nazwę.
     ///
+    /// POTWIERDZONE 2026-11-23 (`wav-1.bin`): przypisanie pliku WAV z karty
+    /// zmieniło +0x02 z 1 na 2. Czyli 1 = brzmienie wewnętrzne, 2 = karta.
+    ///
     /// Kryterium: +0x02 slotu = 1. Tak jest w KAŻDYM slocie każdego backupu
     /// Arka (wszystkie grają brzmienia wewnętrzne). Jak wygląda slot z plikiem
     /// WAV z karty, nie zmierzyliśmy — ale skoro to pole stoi zaraz za numerem
@@ -393,6 +396,39 @@ final class KitEditor: ObservableObject {
         guard let poczatek = layout.triggerOrigin(kit: kit, trigger: trigger),
               let bajty = file.slice(at: poczatek + 0x02, length: 2) else { return false }
         return bajty == [1, 0]
+    }
+
+    // MARK: - Sample z karty SD
+
+    /// Tablica ścieżek do plików WAV: 396 wpisów po 256 B (99 kitów × 4 pady),
+    /// zaraz za blokiem kitów. To był „obszar ~101 KB zer" — zmierzone
+    /// 2026-11-23 (`wav-1.bin`, `wave-2.bin`): przypisanie TEST_A.wav do kitu 70,
+    /// TRIG IN 1 head wpisało tekst `TEST_A.wav` pod 0x5AFA + (69·4 + 0)·256,
+    /// rim — wpis następny, `TESTY/TEST_C.wav` z podfolderem — kolejny.
+    ///
+    /// Ścieżka względem `ROLAND/TM-2/WAVE`, ASCII, separator „/", zakończona
+    /// zerem. ZA zerem moduł zostawia śmieci z poprzedniego wpisu („TEST_A.wav",
+    /// zero, „C.wav") — czytamy tylko do pierwszego zera.
+    ///
+    /// Moduł szuka pliku PO NAZWIE: dodanie TEST_0.wav, który alfabetycznie
+    /// staje przed TEST_A.wav, nie zmieniło tego, co gra pad.
+    static let poczatekSciezekWav = 0x5AFA
+    static let dlugoscSciezkiWav = 256
+
+    /// Ścieżka sampla z karty przypisanego do padu albo `nil`, gdy pad gra
+    /// brzmienie wewnętrzne (albo układ nie jest tym zmierzonym).
+    func sciezkaSampla(kit: Int, trigger: Int) -> String? {
+        guard layout.kitStride == 234, layout.kitBlockOrigin == 0x7C,
+              (1...99).contains(kit), (1...4).contains(trigger),
+              let poczatek = layout.triggerOrigin(kit: kit, trigger: trigger),
+              file.slice(at: poczatek + 0x02, length: 2) == [2, 0]
+        else { return nil }
+        let adres = Self.poczatekSciezekWav
+            + ((kit - 1) * 4 + (trigger - 1)) * Self.dlugoscSciezkiWav
+        guard let wpis = file.slice(at: adres, length: Self.dlugoscSciezkiWav) else { return nil }
+        let tekst = wpis.prefix { $0 != 0 }
+        guard !tekst.isEmpty else { return nil }
+        return String(decoding: tekst, as: UTF8.self)
     }
 
     /// Parametry bieżącego efektu kitu, w kolejności z wyświetlacza modułu.

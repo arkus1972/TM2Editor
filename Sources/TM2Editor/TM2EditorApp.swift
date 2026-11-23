@@ -84,6 +84,10 @@ struct TM2EditorApp: App {
             }
 
             CommandGroup(after: .sidebar) {
+                Toggle("Show Mapping Tools (Hex Inspector, Layout, Log)",
+                       isOn: $model.pokazNarzedziaMapowania)
+                    .keyboardShortcut("d", modifiers: [.command, .option])
+                Divider()
                 Button("Choose Background Image…") {
                     model.tlo.wybierz(log: model.log)
                 }

@@ -54,6 +54,23 @@ final class AppModel: ObservableObject {
     /// Który panel jest aktywny.
     @Published var selectedTab: Tab = .kits
 
+    /// Zakładki z czasów mapowania — Hex Inspector, Layout, Log. Domyślnie
+    /// schowane (prośba Arka: „te pozostałości można już schować"), pokazywane
+    /// z menu View › Show Mapping Tools. Ustawienie pamiętane między
+    /// uruchomieniami.
+    @Published var pokazNarzedziaMapowania: Bool =
+        UserDefaults.standard.bool(forKey: "TM2Editor.narzedziaMapowania") {
+        didSet {
+            UserDefaults.standard.set(pokazNarzedziaMapowania, forKey: "TM2Editor.narzedziaMapowania")
+            if !pokazNarzedziaMapowania { selectedTab = .kits }
+        }
+    }
+
+    /// Zakładki widoczne teraz na pasku.
+    var widoczneZakladki: [Tab] {
+        pokazNarzedziaMapowania ? Tab.allCases : [.kits]
+    }
+
     enum Tab: String, CaseIterable, Identifiable {
         case kits
         case hex

@@ -235,7 +235,9 @@ struct TabSwitcher: View {
 
     var body: some View {
         HStack(spacing: 4) {
-            ForEach(AppModel.Tab.allCases) { tab in
+            // Przy schowanych narzędziach mapowania zostaje sama zakładka Kits —
+            // wtedy nie pokazujemy jej wcale, pasek służy tylko przyciskom.
+            ForEach(model.widoczneZakladki.count > 1 ? model.widoczneZakladki : []) { tab in
                 Button {
                     model.selectedTab = tab
                 } label: {

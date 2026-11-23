@@ -39,6 +39,10 @@ extension AppModel {
     }
 
     private func zapiszProjekt(_ editor: KitEditor, waveProjektu: URL) {
+        // Najpierw sample: Save As ma wysłać na kartę backup RAZEM z dźwiękami,
+        // także tymi, których projekt jeszcze nie miał (backup otwarty bez
+        // karty obok).
+        guard uzupelnijSampleProjektu() else { return }
         let panel = NSOpenPanel()
         panel.title = "Save to SD Card or Folder"
         panel.message = "Choose the SD card (or any folder). The editor writes ROLAND/TM-2/Backup/"

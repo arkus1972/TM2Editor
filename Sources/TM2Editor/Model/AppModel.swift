@@ -96,6 +96,10 @@ final class AppModel: ObservableObject {
     /// Folder projektu otwartego backupu (Dokumenty › TM-2 Editor › …).
     @Published var projekt: URL?
 
+    /// Skąd otwarto backup, zanim powstał z niego projekt (np. karta). Stąd
+    /// Save As dociąga sample, których projekt nie ma.
+    var oryginalBackupu: URL?
+
     /// Otwiera backup. Plik TM-2 spoza projektu najpierw dostaje projekt —
     /// folder ze strukturą karty, do którego trafia kopia backupu i wszystkie
     /// sample, których używa (patrz `ProjektTM2`). Oryginał zostaje nietknięty.
@@ -108,6 +112,7 @@ final class AppModel: ObservableObject {
                 ? url.deletingLastPathComponent().deletingLastPathComponent()
                     .deletingLastPathComponent().deletingLastPathComponent()
                 : nil
+            oryginalBackupu = nil
             otworzPlik(url: url)
             return
         }
@@ -115,6 +120,7 @@ final class AppModel: ObservableObject {
             let zrodloWave = KartaSD.folderWave(dlaBackupu: url) ?? KartaSD.zapamietanyFolderWave
             let zalozony = try ProjektTM2.zaloz(dla: url, zrodloWave: zrodloWave)
             projekt = zalozony.korzen
+            oryginalBackupu = url
             log.append(.info, "Projekt: \(zalozony.korzen.path) — skopiowano"
                 + " \(zalozony.skopiowane) sampli z karty")
             otworzPlik(url: zalozony.backup)
@@ -145,6 +151,40 @@ final class AppModel: ObservableObject {
     /// Plik backupu trzyma tylko NAZWY sampli — dźwięk leży osobno, w WAVE
     /// na karcie. Gdy backup otwarto bez karty obok, pytamy, gdzie są pliki,
     /// i dociągamy je do projektu.
+    /// Przed Save As: projekt ma mieć wszystkie sample, których backup
+    /// używa. Brakujące najpierw po cichu z miejsca, skąd otwarto backup,
+    /// i z zapamiętanej karty; czego tam nie ma — pytanie „Locate Samples…".
+    /// Zwraca `false`, gdy użytkownik przerwał (Not Now / Cancel) i czegoś
+    /// dalej brakuje — wtedy Save As pyta, czy zapisać mimo to.
+    func uzupelnijSampleProjektu() -> Bool {
+        guard let editor, let wave = editor.folderWave, projekt != nil else { return true }
+        var brakujace = ProjektTM2.brakujaceSample(w: editor.file.bytes, wave: wave)
+        guard !brakujace.isEmpty else { return true }
+
+        let zrodla = [oryginalBackupu.flatMap { KartaSD.folderWave(dlaBackupu: $0) },
+                      KartaSD.zapamietanyFolderWave].compactMap { $0 }
+        for zrodlo in zrodla where !brakujace.isEmpty {
+            let wynik = ProjektTM2.dociagnij(brakujace, zWybranego: zrodlo, doWave: wave)
+            if wynik.skopiowane > 0 {
+                log.append(.info, "Save As: dociągnięto \(wynik.skopiowane) sampli z \(zrodlo.path)")
+            }
+            brakujace = wynik.nadal
+        }
+        if !brakujace.isEmpty {
+            zapytajOBrakujace(brakujace)
+            brakujace = ProjektTM2.brakujaceSample(w: editor.file.bytes, wave: wave)
+        }
+        guard !brakujace.isEmpty else { return true }
+
+        let alert = NSAlert()
+        alert.messageText = "Save without \(brakujace.count) sample file(s)?"
+        alert.informativeText = "Pads that use them will show NO WAVE on the module until the files "
+            + "are in ROLAND/TM-2/WAVE on the card: " + brakujace.prefix(8).joined(separator: ", ")
+        alert.addButton(withTitle: "Save Anyway")
+        alert.addButton(withTitle: "Cancel")
+        return alert.runModal() == .alertFirstButtonReturn
+    }
+
     private func zapytajOBrakujace(_ brakujace: [String]) {
         guard let wave = editor?.folderWave else { return }
         var zostalo = brakujace
@@ -233,6 +273,7 @@ final class AppModel: ObservableObject {
     func close() {
         editor = nil
         projekt = nil
+        oryginalBackupu = nil
         validationWarnings = []
         log.append(.info, "Zamknięto plik")
     }

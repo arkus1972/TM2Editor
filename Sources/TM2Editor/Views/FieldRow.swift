@@ -271,6 +271,8 @@ struct FieldRow: View {
     /// Zakres liczby albo lista pozycji po przecinkach. Długie listy skrócone.
     private var opisZakresu: String? {
         if field.id == "trig.instrument" {
+            // 162 nazw nie zmieści się pod parametrem — pełna lista jest
+            // w menu obok.
             return "162 internal sounds or a WAV file from the SD card"
         }
         switch field.encoding {
@@ -292,10 +294,48 @@ struct FieldRow: View {
         return wyswietlanie.text(for: zakres.lowerBound) + " … " + wyswietlanie.text(for: zakres.upperBound)
     }
 
-    private static func lista(_ pozycje: [String]) -> String {
-        guard pozycje.count > 12 else { return pozycje.joined(separator: ", ") }
-        return pozycje.prefix(6).joined(separator: ", ") + ", … " + (pozycje.last ?? "")
-            + "  (\(pozycje.count) options)"
+    /// Opis listy pozycji, jak prosił Arek: liczby rosnące równo — zakres
+    /// („1 … 10", „-24 dB … -1 dB, OFF"); teksty i liczby rosnące
+    /// nieregularnie (LoCut, Q, Ratio, częstotliwości EQ) — wszystkie
+    /// pozycje po przecinkach.
+    static func lista(_ pozycje: [String]) -> String {
+        // Pozycje tekstowe na końcu (np. „OFF" za liczbami) zostają osobno.
+        var liczbowe = pozycje
+        var dopisek: [String] = []
+        while let ostatnia = liczbowe.last, liczbaZJednostka(ostatnia) == nil {
+            dopisek.insert(ostatnia, at: 0)
+            liczbowe.removeLast()
+        }
+        let wartosci = liczbowe.compactMap(liczbaZJednostka)
+        guard liczbowe.count >= 3, wartosci.count == liczbowe.count,
+              Set(wartosci.map(\.jednostka)).count == 1 else {
+            return pozycje.joined(separator: ", ")
+        }
+        let krok = wartosci[1].liczba - wartosci[0].liczba
+        let rowno = krok != 0 && zip(wartosci, wartosci.dropFirst())
+            .allSatisfy { abs(($1.liczba - $0.liczba) - krok) < 1e-9 }
+        guard rowno, let pierwsza = liczbowe.first, let ostatnia = liczbowe.last else {
+            return pozycje.joined(separator: ", ")
+        }
+        return ([pierwsza + " … " + ostatnia] + dopisek).joined(separator: ", ")
     }
+
+    /// „-24 dB" → (-24, " dB"), „16" → (16, ""), „2:1" → (2, ":1"),
+    /// „FLAT" → nil.
+    private static func liczbaZJednostka(_ tekst: String) -> (liczba: Double, jednostka: String)? {
+        var cyfry = ""
+        var reszta = Substring(tekst)
+        if let pierwszy = reszta.first, pierwszy == "-" || pierwszy == "+" {
+            cyfry.append(pierwszy)
+            reszta = reszta.dropFirst()
+        }
+        while let znak = reszta.first, znak.isNumber || znak == "." {
+            cyfry.append(znak)
+            reszta = reszta.dropFirst()
+        }
+        guard let liczba = Double(cyfry) else { return nil }
+        return (liczba, String(reszta))
+    }
+
 
 }

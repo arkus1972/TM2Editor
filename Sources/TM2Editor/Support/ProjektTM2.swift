@@ -36,7 +36,7 @@ enum ProjektTM2 {
         poczatekKitow + (indeks / 4) * krokKitu + poczatekSlotow + (indeks % 4) * krokSlotu
     }
 
-    private static func adresSciezki(_ indeks: Int) -> Int {
+    static func adresSciezki(_ indeks: Int) -> Int {
         KitEditor.poczatekSciezekWav + indeks * KitEditor.dlugoscSciezkiWav
     }
 

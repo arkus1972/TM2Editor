@@ -678,6 +678,27 @@ final class KitEditorTests: XCTestCase {
         XCTAssertFalse(editor.przypiszSampel(sciezka: String(repeating: "a", count: 256), kit: 71, trigger: 1))
     }
 
+    /// Podmiana ścieżek we wszystkich padach naraz — jedna zmiana, jedno cofnięcie.
+    func testZamianaSciezekWeWszystkichPadach() {
+        var bytes = [UInt8](repeating: 0, count: 124_748)
+        for (kit, pad) in [(1, 1), (5, 3), (99, 4)] {
+            let slot = 0x7C + (kit - 1) * 234 + 0x42 + (pad - 1) * 42
+            bytes[slot + 2] = 2
+            let wpis = 0x5AFA + ((kit - 1) * 4 + (pad - 1)) * 256
+            bytes.replaceSubrange(wpis..<(wpis + 8), with: Array("Kick.wav".utf8))
+        }
+        let przed = bytes
+        let editor = KitEditor(file: BackupFile(bytes: bytes, layout: .mapped2026_09_02),
+                               log: EditorLog())
+        XCTAssertEqual(editor.zamienSciezkiSampli(["Kick.wav": "Kick_lvl.wav"], opis: "Test"), 3)
+        XCTAssertEqual(editor.changes.count, 1)
+        XCTAssertEqual(editor.sciezkaSampla(kit: 99, trigger: 4), "Kick_lvl.wav")
+        XCTAssertEqual(editor.sciezkaSampla(kit: 5, trigger: 3), "Kick_lvl.wav")
+        editor.undo()
+        XCTAssertEqual(editor.file.bytes, przed)
+        XCTAssertEqual(editor.zamienSciezkiSampli(["Inny.wav": "X.wav"], opis: "Test"), 0)
+    }
+
     /// Nazwa instrumentu tylko przy brzmieniu wewnętrznym (+0x02 slotu = 1).
     func testBrzmienieWewnetrzneRozpoznawanePoBajcieBanku() {
         var bytes = [UInt8](repeating: 0, count: 124_748)

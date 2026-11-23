@@ -100,6 +100,9 @@ final class AppModel: ObservableObject {
     /// luzem). Stąd Save As dociąga sample, których projekt nie ma.
     var oryginalBackupu: URL?
 
+    /// Okno Tools › Even Out Sample Levels…
+    @Published var pokazWyrownanie = false
+
     /// Czy otwarty plik to kopia założona przez edytor (backup luzem) — tylko
     /// wtedy Save As aktualizuje ją na miejscu. Plik otwarty z karty to
     /// ORYGINAŁ i nigdy nie jest nadpisywany.

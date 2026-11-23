@@ -18,6 +18,11 @@ struct ContentView: View {
         // własne tło. Na wierzchu nic go nie przykryje, a kliknięcia przez
         // niego przechodzą (allowsHitTesting(false) w TloOkna).
         .overlay { TloOkna(tlo: model.tlo) }
+        .sheet(isPresented: $model.pokazWyrownanie) {
+            if let editor = model.editor {
+                WyrownanieGlosnosci(editor: editor, zamknij: { model.pokazWyrownanie = false })
+            }
+        }
         .alert("Something went wrong",
                isPresented: Binding(
                    get: { model.errorMessage != nil },

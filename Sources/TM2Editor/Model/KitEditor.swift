@@ -491,6 +491,54 @@ final class KitEditor: ObservableObject {
                                stary: opisPoprzedni, nowy: "SD: " + sciezka)
     }
 
+    /// Podmienia ścieżki sampli we WSZYSTKICH padach backupu naraz
+    /// (np. po wyrównaniu głośności: „Kick.wav" → „Kick_lvl.wav"). Jedna
+    /// pozycja na liście zmian — jedno Cmd+Z cofa całość. Zwraca liczbę
+    /// zmienionych padów.
+    @discardableResult
+    func zamienSciezkiSampli(_ mapa: [String: String], opis: String) -> Int {
+        guard obslugujeBrzmienia, !mapa.isEmpty else { return 0 }
+        var fragmenty: [FragmentZmiany] = []
+        for (indeks, sciezka) in ProjektTM2.wpisySampli(w: file.bytes) {
+            guard let nowa = mapa[sciezka], nowa != sciezka else { continue }
+            let bajty = Array(nowa.utf8)
+            guard bajty.count < Self.dlugoscSciezkiWav,
+                  bajty.allSatisfy({ $0 >= 0x20 && $0 < 0x7F }) else { continue }
+            let adres = ProjektTM2.adresSciezki(indeks)
+            guard let stary = file.slice(at: adres, length: Self.dlugoscSciezkiWav) else { continue }
+            var nowyWpis = [UInt8](repeating: 0, count: Self.dlugoscSciezkiWav)
+            nowyWpis.replaceSubrange(0..<bajty.count, with: bajty)
+            fragmenty.append(FragmentZmiany(offset: adres, oldRaw: stary, newRaw: nowyWpis))
+        }
+        guard let pierwszy = fragmenty.first else { return 0 }
+        do {
+            for f in fragmenty { try file.setSlice(f.newRaw, at: f.offset) }
+        } catch {
+            for f in fragmenty { try? file.setSlice(f.oldRaw, at: f.offset) }
+            lastError = error.localizedDescription
+            return 0
+        }
+        let change = EditChange(
+            fieldID: "sample.paths",
+            fieldLabel: opis,
+            scope: .global,
+            kit: 1,
+            trigger: 1,
+            oldValue: .text("\(fragmenty.count) pads"),
+            newValue: .text("\(mapa.count) files"),
+            timestamp: Date(),
+            offset: pierwszy.offset,
+            oldRaw: pierwszy.oldRaw,
+            newRaw: pierwszy.newRaw,
+            dodatkowe: Array(fragmenty.dropFirst())
+        )
+        changes.append(change)
+        redoStack.removeAll()
+        odswiezPamiecPodreczna()
+        log.append(.edit, change.summary)
+        return fragmenty.count
+    }
+
     /// Wraca do brzmienia wewnętrznego o numerze 0…161 (numer z listy − 1).
     /// Wpisu w tablicy ścieżek nie rusza — przy „banku" 1 moduł go nie czyta.
     @discardableResult

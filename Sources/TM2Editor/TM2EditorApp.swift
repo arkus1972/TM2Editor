@@ -71,6 +71,13 @@ struct TM2EditorApp: App {
             // Bez blokowania „Remove" przy braku tła: menu nie obserwuje
             // obiektu tła, więc stan wyszarzenia mógłby kłamać — a usunięcie
             // nieistniejącego tła po prostu niczego nie robi.
+            CommandMenu("Tools") {
+                Button("Even Out Sample Levels…") {
+                    model.pokazWyrownanie = true
+                }
+                .disabled(model.projekt == nil || model.editor == nil)
+            }
+
             CommandGroup(after: .sidebar) {
                 Button("Choose Background Image…") {
                     model.tlo.wybierz(log: model.log)

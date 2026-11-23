@@ -40,3 +40,20 @@ między dwoma backupami pochodzi z przycisków.
 
 ---
 
+## 2026-11-23 — efekty kitu: pliki pomiarowe do archiwum
+
+| Plik | MD5 (skrót) | Co to jest |
+|---|---|---|
+| `archiwum/efekty-domyslne.bin` | `0e4aba7b5321` | kity 70–80 przestawione na kolejne efekty, parametry nietknięte (wartości domyślne). Wcześniej `nowe/efekty-1.bin`. |
+| `archiwum/efekty-max.bin` | `1924b91704d3` | te same kity, każdy wyświetlany parametr na maksimum. Wgrany jako podmiana `nowe/efekty-1.bin` (commit `aaa7990`). |
+| `archiwum/efekty-min.bin` | `93e01d29a696` | to samo na minimum (`BKUP-006`). Kit 71 przeskoczył przy tym z TAPE ECHO na DELAY. |
+
+Uwaga na przyszłość: wgranie przez stronę GitHuba pliku o tej samej nazwie
+i zawartości co istniejący daje **pusty commit** „Add files via upload". Tak
+zginęły trzy próby z 23.11. TM-2 nie ma zegara — data plików na karcie jest stała,
+nowy backup poznaje się tylko po numerze.
+
+Do `archiwum/` poszły też `typy-1…9.bin` i `noise.bin` z 22.11. `nowe/` jest puste.
+Mapa parametrów: `Sources/TM2Editor/Model/ParametryEfektow.swift`.
+
+---

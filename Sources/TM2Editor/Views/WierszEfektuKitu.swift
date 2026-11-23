@@ -5,8 +5,8 @@ import SwiftUI
 ///
 /// Tak jak przy typie pada: zmiana efektu to nie zapis jednej wartości, tylko
 /// typ plus wartości domyślne wszystkich jego parametrów, dokładnie jak moduł.
-/// Same parametry efektu nie są jeszcze do edycji — wiemy, gdzie leżą, ale nie
-/// dla każdego efektu wiemy, które pole jest którym parametrem.
+/// Parametry wybranego efektu pokazuje sekcja pod tym wierszem
+/// (`ParametryEfektow`).
 struct WierszEfektuKitu: View {
 
     @ObservedObject var editor: KitEditor
@@ -18,7 +18,7 @@ struct WierszEfektuKitu: View {
                 Text("Kit Effect")
                     .font(.title3)
                 Text("Changing it resets the effect's parameters to their defaults, "
-                     + "as on the module. The parameters themselves are not editable yet.")
+                     + "as on the module.")
                     .font(.caption)
                     .foregroundStyle(.tertiary)
                     .fixedSize(horizontal: false, vertical: true)

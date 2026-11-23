@@ -215,7 +215,7 @@ struct KitDetailView: View {
                 if editor.obslugujeEfektKitu {
                     FieldSection(
                         title: "Effect",
-                        fields: [],
+                        fields: editor.kitEffectParameters(kit: selection.kit),
                         editor: editor,
                         kit: selection.kit,
                         trigger: 1,

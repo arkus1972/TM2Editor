@@ -187,6 +187,19 @@ final class KitEditor: ObservableObject {
             return false
         }
 
+        // Parametr efektu ma sens tylko przy tym efekcie, dla którego został
+        // opisany: to samo pole +0x1C to DlyTime w DELAY, a RevTime w REVERB.
+        // Wartość wpisana dla REVERB i zatwierdzona już po zmianie efektu
+        // (np. przy zapisie pliku) trafiłaby w zupełnie inny parametr.
+        if let kod = ParametryEfektow.kodEfektu(zID: field.id) {
+            guard obslugujeEfektKitu, kitEffect(kit: kit)?.kod == kod else {
+                lastError = "\"\(field.label)\" belongs to a different kit effect."
+                log.append(.warning, "Pominięto zapis \(field.id) w kicie \(kit):"
+                    + " kit ma teraz inny efekt")
+                return false
+            }
+        }
+
         guard let offset = layout.absoluteOffset(for: field, kit: kit, trigger: trigger),
               let oldRaw = file.slice(at: offset, length: field.encoding.byteLength) else {
             lastError = "Field \"\(field.label)\" points outside the file."
@@ -365,6 +378,13 @@ final class KitEditor: ObservableObject {
     /// (blok kitu 234 B). Bez tego zmiana efektu pisałaby na ślepo.
     var obslugujeEfektKitu: Bool {
         layout.canAddressKits && layout.kitStride == 234
+    }
+
+    /// Parametry bieżącego efektu kitu, w kolejności z wyświetlacza modułu.
+    /// THRU i efekt spoza tablicy — pusta lista.
+    func kitEffectParameters(kit: Int) -> [FieldSpec] {
+        guard let efekt = kitEffect(kit: kit) else { return [] }
+        return ParametryEfektow.parametry(kodEfektu: efekt.kod)
     }
 
     /// Efekt kitu albo `nil`, gdy w pliku stoi kod spoza zmierzonej tablicy.

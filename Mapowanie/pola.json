@@ -26,14 +26,14 @@
       "offset": 22,
       "dlugosc": 44,
       "kodowanie": "pola_uint16le",
-      "opis": "STREFA EFEKTU KITU (+0x16..+0x41, 44 B, pola 16-bitowe LE). Typ efektu pod +0x18. Zmierzone max2/min2 (REVERB kontra THRU): przy THRU zeruja sie pola +0x18, +0x1A, +0x1C, +0x1E, +0x20, +0x22, +0x24, +0x26, +0x28, +0x2A -- dziesiec pol, czyli wiecej niz szesc parametrow widocznych na wyswietlaczu. +0x16 = 1 w obu plikach, od +0x2C w gore same zera. Przyporzadkowanie z pomiaru REVERB: +0x1A = 4 (RevType PLATE), +0x1C = 99 (RevTime), +0x1E = 100 (PreDly), +0x20 = 10 (LoCut 800Hz), +0x22 = 9 (HiCut Flat), +0x26 = 100 (Dry-Wet). NIE DO EDYCJI: znaczenie pol zalezy od typu efektu."
+      "opis": "STREFA EFEKTU KITU (+0x16..+0x41, 44 B, pola 16-bitowe LE). Typ efektu pod +0x18. Zmierzone max2/min2 (REVERB kontra THRU): przy THRU zeruja sie pola +0x18, +0x1A, +0x1C, +0x1E, +0x20, +0x22, +0x24, +0x26, +0x28, +0x2A -- dziesiec pol, czyli wiecej niz szesc parametrow widocznych na wyswietlaczu. +0x16 = 1 w obu plikach, od +0x2C w gore same zera. Znaczenie pol zalezy od typu efektu -- pelna mapa parametrow wszystkich 11 efektow w Sources/TM2Editor/Model/ParametryEfektow.swift (2026-11-23: Sound List PDF Rolanda + serie efekty-domyslne/max/min na kitach 70-80 + odczyty z wyswietlacza). EDYTOWALNE w programie."
     },
     {
       "nazwa": "kit.effect.type",
       "offset": 24,
       "dlugosc": 2,
       "kodowanie": "uint16le_lista",
-      "opis": "TYP EFEKTU KITU, +0x18 bloku kitu, uint16LE. Kody zmierzone (efekty-1.bin, kity 70-80): THRU 0, DELAY 1, TAPE ECHO 3, CHORUS 4, FLANGER 5, PHASER 7, EQUALIZER 9, COMP 10, WAH 14, DIST 15, RINGMOD 16, REVERB 19 -- kody z dziurami. Zmiana efektu ustawia +0x18..+0x41 na typ i wartosci domyslne (TypyEfektow.swift), +0x16 nietkniete. EDYTOWALNY w programie od 2026-11-22. Parametry efektu: polozenie znane, znaczenie pol per typ -- do zmapowania."
+      "opis": "TYP EFEKTU KITU, +0x18 bloku kitu, uint16LE. Kody zmierzone (efekty-1.bin, kity 70-80): THRU 0, DELAY 1, TAPE ECHO 3, CHORUS 4, FLANGER 5, PHASER 7, EQUALIZER 9, COMP 10, WAH 14, DIST 15, RINGMOD 16, REVERB 19 -- kody z dziurami. Zmiana efektu ustawia +0x18..+0x41 na typ i wartosci domyslne (TypyEfektow.swift), +0x16 nietkniete. EDYTOWALNY w programie od 2026-11-22. Parametry efektu: zmapowane 2026-11-23, patrz kit.effect.strefa."
     }
   ],
   "polaTrigera": [
@@ -635,7 +635,7 @@
     }
   ],
   "otwartePytania": [
-    "Parametry efektow kitu: dla kazdego z 11 efektow, ktore pole (+0x1A..+0x40) to ktory parametr i w jakiej skali. Wartosci domyslne juz znane.",
+    "Parametry efektow kitu -- domkniecia: minima TAPE ECHO (kit 71 przeskoczyl na DELAY w serii min); w FLANGER, PHASER i WAH przypisanie Rate/Depth/Manual/Resonance (Sens/Frequency/Peak) przyjete z kolejnosci, bo wszystkie maja zakres 0-100 -- do potwierdzenia jednym pomiarem na parametr.",
     "Drugi rekord kazdego gniazda (2 i 4) to drugi pad w trybie PADx2 -- potwierdzone seria typow (4 niezalezne typy). W trybie HEAD&RIM rekord nieuzywany.",
     "Czy modul zmienia cos w rekordzie wejscia sam. Dwa bajty zmienily sie bez wiedzy Arka (Sensitivity 17 -> 32 w trzy-drobiazgi.bin, H/R Adjust 20 -> 31 w poly.bin). Rozstrzygnie para pustych backupow bez dotykania czegokolwiek.",
     "Co oznaczaja bajty +0x00 i +0x0A w rekordach RIM (2 i 4) -- maja wartosci, ale nie byly mierzone.",

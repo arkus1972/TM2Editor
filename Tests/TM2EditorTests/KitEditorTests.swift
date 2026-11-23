@@ -578,4 +578,42 @@ final class KitEditorTests: XCTestCase {
         editor.undo()
         XCTAssertEqual(editor.file.slice(at: kit7 + 0x16, length: 44), przed)
     }
+
+    /// Parametr efektu: dwa bajty LE pod właściwym adresem kitu, jedna pozycja
+    /// na liście zmian, cofnięcie wraca do wartości domyślnej. Zapis parametru
+    /// innego efektu jest odrzucany — to samo pole znaczy co innego.
+    func testParametrEfektuZapisujeSieTylkoDoSwojegoEfektu() throws {
+        var bytes = [UInt8](repeating: 0, count: 124_748)
+        let kit7 = 0x7C + 6 * 234
+        bytes[kit7 + 0x16] = 1
+        let delay = try XCTUnwrap(TypyEfektow.typ(kod: 1))
+        bytes.replaceSubrange((kit7 + 0x18)..<(kit7 + 0x42), with: delay.bajtyStrefy)
+        let editor = KitEditor(file: BackupFile(bytes: bytes, layout: .mapped2026_09_02),
+                               log: EditorLog())
+
+        let parametry = editor.kitEffectParameters(kit: 7)
+        XCTAssertEqual(parametry.map(\.label),
+                       ["DlyTime", "Feedbak", "LoCut", "HiCut", "Dry-Wet", "Level"])
+        let dlyTime = try XCTUnwrap(parametry.first)
+        XCTAssertEqual(editor.value(of: dlyTime, kit: 7, trigger: 1), .number(100))
+
+        XCTAssertTrue(editor.set(.number(350), for: dlyTime, kit: 7, trigger: 1))
+        XCTAssertEqual(editor.file.slice(at: kit7 + 0x1C, length: 2), [0x5E, 0x01])
+        XCTAssertEqual(editor.changes.count, 1)
+        // Sąsiednie pola nietknięte.
+        XCTAssertEqual(editor.file.slice(at: kit7 + 0x1E, length: 2), [100, 0])
+
+        // Parametr REVERB w kicie z DELAY — odmowa, nic się nie zmienia.
+        let revTime = try XCTUnwrap(ParametryEfektow.parametry(kodEfektu: 19)
+            .first { $0.id == "fx.19.time" })
+        XCTAssertFalse(editor.set(.number(5), for: revTime, kit: 7, trigger: 1))
+        XCTAssertEqual(editor.changes.count, 1)
+        XCTAssertEqual(editor.file.slice(at: kit7 + 0x1C, length: 2), [0x5E, 0x01])
+
+        // Kit 8 ma THRU — żadnych parametrów.
+        XCTAssertTrue(editor.kitEffectParameters(kit: 8).isEmpty)
+
+        editor.undo()
+        XCTAssertEqual(editor.file.slice(at: kit7 + 0x1C, length: 2), [100, 0])
+    }
 }

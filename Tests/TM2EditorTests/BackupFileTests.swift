@@ -760,6 +760,143 @@ final class BackupFileTests: XCTestCase {
         XCTAssertEqual(reverb.domyslne[8], 100)
     }
 
+    // MARK: - Parametry efektów
+
+    /// Maksima z backupu `aaa7990` (kity 70–80): kod efektu → [offset: wartość].
+    /// Tylko pola, które zmieniły się względem wartości domyślnych.
+    private static let zmierzoneMaksima: [Int: [Int: Int]] = [
+        1: [0x1C: 350, 0x20: 99, 0x22: 10, 0x26: 100],
+        3: [0x1C: 127, 0x1E: 127, 0x20: 30, 0x22: 30, 0x30: 100],
+        4: [0x1C: 100, 0x1E: 100, 0x20: 80, 0x22: 10, 0x26: 100],
+        5: [0x1C: 100, 0x20: 100, 0x24: 100, 0x2A: 100, 0x2C: 100],
+        7: [0x1E: 100, 0x22: 100, 0x24: 100, 0x26: 100, 0x2A: 100, 0x2C: 100],
+        9: [0x1E: 27, 0x20: 5, 0x22: 40, 0x24: 27, 0x26: 5, 0x28: 40, 0x2E: 40],
+        10: [0x1A: 48, 0x1C: 100, 0x1E: 99, 0x20: 4, 0x24: 24],
+        14: [0x1E: 100, 0x20: 100, 0x22: 100, 0x24: 100, 0x26: 100],
+        15: [0x1A: 24, 0x1C: 120, 0x1E: 100, 0x20: 100, 0x22: 100, 0x26: 100],
+        16: [0x1A: 127, 0x1C: 127, 0x1E: 1, 0x20: 30, 0x22: 30, 0x24: 100],
+        19: [0x1A: 4, 0x1C: 99, 0x1E: 100, 0x20: 10, 0x22: 9, 0x26: 100],
+    ]
+
+    /// Minima z `BKUP-006`. TAPE ECHO brak — kit 71 przeskoczył przy serii na DELAY.
+    private static let zmierzoneMinima: [Int: [Int: Int]] = [
+        1: [0x1C: 0, 0x20: 0, 0x22: 0, 0x24: 0, 0x26: 0, 0x28: 0],
+        4: [0x1C: 0, 0x1E: 0, 0x20: 0, 0x22: 0, 0x24: 0, 0x26: 0, 0x28: 0],
+        5: [0x1C: 0, 0x20: 0, 0x22: 0, 0x24: 0, 0x28: 0, 0x2A: 0, 0x2C: 0],
+        7: [0x1E: 0, 0x22: 0, 0x24: 0, 0x26: 0, 0x2A: 0, 0x2C: 0],
+        9: [0x1E: 0, 0x20: 0, 0x22: 0, 0x24: 0, 0x26: 0, 0x28: 0, 0x2E: 0],
+        10: [0x1A: 0, 0x1C: 0, 0x1E: 0, 0x20: 0, 0x22: 0, 0x24: 0],
+        14: [0x1E: 0, 0x20: 0, 0x22: 0, 0x24: 0, 0x26: 0],
+        15: [0x1C: 0, 0x1E: 0, 0x20: 0, 0x22: 0, 0x24: 0, 0x26: 0],
+        16: [0x1A: 0, 0x1C: 0, 0x20: 0, 0x22: 0, 0x24: 0, 0x26: 0],
+        19: [0x1A: 0, 0x1C: 0, 0x20: 0, 0x22: 0, 0x26: 0, 0x28: 0],
+    ]
+
+    /// Każde pole, które moduł ruszył w serii max/min, jest parametrem tego
+    /// efektu — i odwrotnie: zakres każdego parametru kończy się dokładnie tam,
+    /// gdzie moduł się zatrzymał (albo na wartości domyślnej, gdy ta już była
+    /// skrajna).
+    func testEffectParametersMatchMeasuredExtremes() throws {
+        for efekt in TypyEfektow.wszystkie {
+            let parametry = ParametryEfektow.parametry(kodEfektu: efekt.kod)
+            if efekt.kod == 0 {
+                XCTAssertTrue(parametry.isEmpty, "THRU nie ma parametrów.")
+                continue
+            }
+            XCTAssertFalse(parametry.isEmpty, efekt.nazwa)
+            let poOffsecie = Dictionary(uniqueKeysWithValues: parametry.map { ($0.offset!, $0) })
+            XCTAssertEqual(poOffsecie.count, parametry.count, "\(efekt.nazwa): powtórzony offset")
+
+            let maksima = Self.zmierzoneMaksima[efekt.kod] ?? [:]
+            let minima = Self.zmierzoneMinima[efekt.kod]
+            for offset in Set(maksima.keys).union(minima.map { Array($0.keys) } ?? []) {
+                XCTAssertNotNil(poOffsecie[offset],
+                                "\(efekt.nazwa) +0x\(String(offset, radix: 16)): moduł ruszył pole, którego nie ma na liście")
+            }
+
+            for p in parametry {
+                let offset = try XCTUnwrap(p.offset)
+                XCTAssertTrue((0x1A...0x40).contains(offset) && offset % 2 == 0,
+                              "\(p.id) poza strefą parametrów")
+                XCTAssertEqual(p.scope, .kit)
+                XCTAssertEqual(p.encoding.byteLength, 2)
+                XCTAssertEqual(ParametryEfektow.kodEfektu(zID: p.id), efekt.kod)
+                let zakres = try XCTUnwrap(p.encoding.numericRange)
+                let domyslna = efekt.domyslne[(offset - 0x1A) / 2]
+                XCTAssertTrue(zakres.contains(domyslna), "\(p.id): wartość domyślna poza zakresem")
+                XCTAssertEqual(maksima[offset] ?? domyslna, zakres.upperBound, "\(p.id): maksimum")
+                if let minima {
+                    XCTAssertEqual(minima[offset] ?? domyslna, zakres.lowerBound, "\(p.id): minimum")
+                }
+            }
+        }
+    }
+
+    /// Odczyty Arka z wyświetlacza przy maksimach (23.11) i listy z modułu.
+    func testEffectParametersShowValuesLikeTheModule() throws {
+        func tekst(_ kod: Int, _ klucz: String, _ wartosc: Int) throws -> String {
+            let p = try XCTUnwrap(ParametryEfektow.parametry(kodEfektu: kod)
+                .first { $0.id == "fx.\(kod).\(klucz)" }, "fx.\(kod).\(klucz)")
+            return (p.display ?? .plain).text(for: wartosc)
+        }
+        XCTAssertEqual(try tekst(1, "dlyTime", 350), "350 ms")
+        XCTAssertEqual(try tekst(1, "dlyTime", 100), "100 ms")
+        XCTAssertEqual(try tekst(1, "loCut", 10), "800 Hz")
+        XCTAssertEqual(try tekst(1, "loCut", 0), "FLAT")
+        XCTAssertEqual(try tekst(1, "hiCut", 9), "FLAT")
+        XCTAssertEqual(try tekst(1, "hiCut", 7), "8.0 kHz")
+        XCTAssertEqual(try tekst(1, "dryWet", 50), "50:50")
+        XCTAssertEqual(try tekst(1, "dryWet", 100), "0:100")
+        XCTAssertEqual(try tekst(3, "repeatRate", 127), "127")
+        XCTAssertEqual(try tekst(3, "bass", 30), "+15 dB")
+        XCTAssertEqual(try tekst(3, "bass", 15), "0 dB")
+        XCTAssertEqual(try tekst(3, "bass", 0), "-15 dB")
+        XCTAssertEqual(try tekst(4, "preDelay", 80), "40.0 ms")
+        XCTAssertEqual(try tekst(9, "eq1Freq", 27), "10.0 kHz")
+        XCTAssertEqual(try tekst(9, "eq1Freq", 15), "630 Hz")
+        XCTAssertEqual(try tekst(9, "eq2Freq", 19), "1.60 kHz")
+        XCTAssertEqual(try tekst(9, "eq1Freq", 0), "20.0 Hz")
+        XCTAssertEqual(try tekst(9, "eq1Q", 5), "16")
+        XCTAssertEqual(try tekst(9, "eq1Gain", 40), "+20 dB")
+        XCTAssertEqual(try tekst(9, "level", 40), "+20 dB")
+        XCTAssertEqual(try tekst(10, "threshold", 0), "-48 dB")
+        XCTAssertEqual(try tekst(10, "threshold", 48), "0 dB")
+        XCTAssertEqual(try tekst(10, "ratio", 4), "100:1")
+        XCTAssertEqual(try tekst(10, "ratio", 2), "4:1")
+        XCTAssertEqual(try tekst(10, "knee", 1), "HARD")
+        XCTAssertEqual(try tekst(10, "makeUp", 24), "+24 dB")
+        XCTAssertEqual(try tekst(15, "type", 0), "MID BST")
+        XCTAssertEqual(try tekst(15, "type", 24), "MUFF FUZZ")
+        XCTAssertEqual(try tekst(15, "bottom", 0), "-50")
+        XCTAssertEqual(try tekst(16, "polarity", 1), "DOWN")
+        XCTAssertEqual(try tekst(19, "type", 4), "PLATE")
+        XCTAssertEqual(try tekst(19, "type", 1), "ROOM")
+        XCTAssertEqual(try tekst(19, "time", 99), "99")
+        // Wartość spoza listy — pokazana uczciwie, nie jako ostatnia pozycja.
+        XCTAssertEqual(try tekst(19, "type", 7), "#7")
+    }
+
+    /// Każda wartość każdego parametru: tekst z wyświetlacza czyta się z powrotem
+    /// dokładnie jako ta sama wartość. Inaczej wpisanie z klawiatury tego,
+    /// co widać, zapisałoby coś innego.
+    func testEffectParameterDisplayRoundTrips() throws {
+        for efekt in TypyEfektow.wszystkie {
+            for p in ParametryEfektow.parametry(kodEfektu: efekt.kod) {
+                let wyswietlanie = p.display ?? .plain
+                for v in try XCTUnwrap(p.encoding.numericRange) {
+                    XCTAssertEqual(wyswietlanie.parse(wyswietlanie.text(for: v)), v,
+                                   "\(p.id): \(wyswietlanie.text(for: v))")
+                }
+            }
+        }
+        let dw = FieldDisplay.dryWet
+        XCTAssertEqual(dw.parse("70:30"), 30)
+        XCTAssertNil(dw.parse("70:40"), "Proporcja musi się sumować do 100.")
+        XCTAssertEqual(FieldDisplay.przesuniecie(bias: 15, unit: "dB").parse("+3dB"), 18)
+        XCTAssertEqual(FieldDisplay.lista(ParametryEfektow.typPoglosu).parse("hall 1"), 2)
+        XCTAssertNil(FieldDisplay.lista(ParametryEfektow.dobrocQ).parse("3"))
+    }
+
     /// `unmappedTM2` ma zostać nietknięty — zależą od niego pozostałe testy
     /// i tryb pracy „jeszcze nic nie wiem o formacie".
     func testUnmappedLayoutStaysUnmapped() {

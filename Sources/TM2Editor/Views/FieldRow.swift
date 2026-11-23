@@ -65,8 +65,31 @@ struct FieldRow: View {
 
     // MARK: - Kontrolka zależna od kodowania
 
+    /// Pozycje listy, gdy pole pokazuje nazwę zamiast liczby (LoCut, typ
+    /// pogłosu…). Wtedy wybór z listy, jak na module — niezależnie od tego,
+    /// czy w pliku siedzi jeden bajt, czy dwa.
+    private var pozycjeListy: [String]? {
+        if case .lista(let pozycje)? = field.display { return pozycje }
+        return nil
+    }
+
     @ViewBuilder
     private var editorControl: some View {
+        if let pozycje = pozycjeListy {
+            Picker("", selection: numberBinding) {
+                ForEach(Array(pozycje.enumerated()), id: \.offset) { index, name in
+                    Text(name).tag(index)
+                }
+            }
+            .labelsHidden()
+            .controlSize(.large)
+        } else {
+            kontrolkaWedlugKodowania
+        }
+    }
+
+    @ViewBuilder
+    private var kontrolkaWedlugKodowania: some View {
         switch field.encoding {
         case .ascii(let length):
             TextField("", text: textBinding)

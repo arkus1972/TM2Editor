@@ -147,6 +147,20 @@ enum FieldDisplay: Codable, Equatable {
     /// i jednym miejscu po przecinku daje `300.0 ms`.
     case scaled(divisor: Int, fractionDigits: Int, unit: String)
 
+    /// Wartość jako pozycja na liście nazw: LoCut `FLAT`…`800 Hz`, typ
+    /// przesteru, typ pogłosu. W przeciwieństwie do kodowania `enumeration`
+    /// nie zakłada jednego bajtu — parametry efektów są 16-bitowe.
+    case lista([String])
+
+    /// Proporcja sygnału suchego do efektu. W pliku udział efektu 0–100,
+    /// na wyświetlaczu „100:0" (sam suchy) … „0:100" (sam efekt).
+    case dryWet
+
+    /// Wartość z przesunięciem i znakiem: przy przesunięciu 15 bajt 0 to
+    /// „-15 dB", 15 to „0 dB", 30 to „+15 dB". Tak moduł zapisuje wszystkie
+    /// wzmocnienia efektów (Bass, Treble, Gain, Thrshd, Bottom, Tone).
+    case przesuniecie(bias: Int, unit: String)
+
     func text(for value: Int) -> String {
         switch self {
         case .plain:
@@ -172,6 +186,20 @@ enum FieldDisplay: Codable, Equatable {
             // Pusta jednostka to normalny przypadek: Rim Gain pokazuje samo
             // „8.0", bez niczego dalej. Bez tego warunku zostawałaby wisząca
             // spacja na końcu wartości.
+            return unit.isEmpty ? liczba : "\(liczba) \(unit)"
+
+        case .lista(let pozycje):
+            // Wartość spoza listy pokazujemy jako surową liczbę z krzyżykiem,
+            // a nie jako ostatnią pozycję — plik ma prawo zawierać coś, czego
+            // nie zmierzyliśmy, i edytor ma to pokazać uczciwie.
+            return pozycje.indices.contains(value) ? pozycje[value] : "#\(value)"
+
+        case .dryWet:
+            return "\(100 - value):\(value)"
+
+        case .przesuniecie(let bias, let unit):
+            let v = value - bias
+            let liczba = v > 0 ? "+\(v)" : String(v)
             return unit.isEmpty ? liczba : "\(liczba) \(unit)"
         }
     }
@@ -295,6 +323,41 @@ extension FieldDisplay {
             // Wartość między krokami — odmowa, nie zaokrąglenie.
             guard abs(surowa - zaokraglona) < 1e-6 else { return nil }
             return Int(zaokraglona)
+
+        case .lista(let pozycje):
+            // Porównanie bez spacji i bez wielkości liter: „hall1", „HALL 1"
+            // i „HALL1" to ta sama pozycja. Żadnego odczytu gołej liczby —
+            // na liście Q „2" jest nazwą pozycji, nie jej numerem.
+            let szukane = Self.bezSpacji(t)
+            let trafienia = pozycje.indices.filter {
+                Self.bezSpacji(pozycje[$0].uppercased()) == szukane
+            }
+            return trafienia.count == 1 ? trafienia[0] : nil
+
+        case .dryWet:
+            let czesci = t.split(separator: ":", omittingEmptySubsequences: false)
+            if czesci.count == 2,
+               let suchy = Int(czesci[0].trimmingCharacters(in: .whitespaces)),
+               let mokry = Int(czesci[1].trimmingCharacters(in: .whitespaces)),
+               suchy >= 0, mokry >= 0, suchy + mokry == 100 {
+                return mokry
+            }
+            // Sama liczba = udział efektu, tak jak w pliku.
+            return czesci.count == 1 ? Int(t) : nil
+
+        case .przesuniecie(let bias, let unit):
+            var liczba = t
+            let jednostka = unit.uppercased()
+            if !jednostka.isEmpty, liczba.hasSuffix(jednostka) {
+                liczba = String(liczba.dropLast(jednostka.count))
+            }
+            liczba = liczba.trimmingCharacters(in: .whitespaces)
+            guard let v = Int(liczba), abs(v) < 1_000_000 else { return nil }
+            return v + bias
         }
+    }
+
+    private static func bezSpacji(_ s: String) -> String {
+        s.replacingOccurrences(of: " ", with: "")
     }
 }

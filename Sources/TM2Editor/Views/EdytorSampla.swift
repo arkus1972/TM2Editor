@@ -20,6 +20,8 @@ struct EdytorSampla: View {
     @State private var ustawienia: UstawieniaSampla
     @State private var nazwa: String
     @State private var odtwarzacz: AVAudioPlayer?
+    /// Który znacznik jest przeciągany na przebiegu: 0 = Start, 1 = End.
+    @State private var przeciagany: Int?
     private let przebiegOryginalu: [(min: Float, max: Float)]
 
     static let progDlugosci: Double = 30          // sekundy
@@ -58,12 +60,49 @@ struct EdytorSampla: View {
 
     // MARK: - Przebieg
 
+    /// Przebieg z zaznaczeniem Start/End, obszarami Fade i krzywą głośności.
+    /// Start i End da się też przeciągać myszą prosto na przebiegu.
     private var podgladPrzebiegu: some View {
-        Przebieg(szczyty: przebiegOryginalu,
-                 od: oryginal.sekundy > 0 ? ustawienia.poczatek / oryginal.sekundy : 0,
-                 doKonca: oryginal.sekundy > 0 ? ustawienia.koniec / oryginal.sekundy : 1)
-            .frame(height: 110)
-            .background(Color.black.opacity(0.06), in: RoundedRectangle(cornerRadius: 6))
+        let calosc = Swift.max(oryginal.sekundy, 0.000_001)
+        let w = wynik
+        let kolumnWyniku = Swift.max(1, Int(Double(przebiegOryginalu.count)
+            * (ustawienia.koniec - ustawienia.poczatek) / calosc))
+        return GeometryReader { geo in
+            Przebieg(
+                oryginal: przebiegOryginalu,
+                wynik: w.przebieg(kolumn: kolumnWyniku),
+                od: ustawienia.poczatek / calosc,
+                doKonca: ustawienia.koniec / calosc,
+                narastanie: ustawienia.narastanieMs / 1000 / calosc,
+                wygaszanie: ustawienia.wygaszanieMs / 1000 / calosc
+            )
+            .contentShape(Rectangle())
+            .gesture(przeciaganieZnacznikow(szerokosc: geo.size.width, calosc: calosc))
+        }
+        .frame(height: 150)
+        .background(Color.black.opacity(0.75), in: RoundedRectangle(cornerRadius: 6))
+        .clipShape(RoundedRectangle(cornerRadius: 6))
+        .help("Drag the orange markers to set Start and End.")
+    }
+
+    /// Przeciąganie: łapiemy znacznik bliższy miejscu kliknięcia i trzymamy
+    /// go do puszczenia przycisku.
+    private func przeciaganieZnacznikow(szerokosc: CGFloat, calosc: Double) -> some Gesture {
+        DragGesture(minimumDistance: 0)
+            .onChanged { ruch in
+                guard szerokosc > 0 else { return }
+                let pozycja = Swift.min(Swift.max(Double(ruch.location.x / szerokosc), 0), 1) * calosc
+                if przeciagany == nil {
+                    let klik = Double(ruch.startLocation.x / szerokosc) * calosc
+                    przeciagany = abs(klik - ustawienia.poczatek) <= abs(klik - ustawienia.koniec) ? 0 : 1
+                }
+                if przeciagany == 0 {
+                    ustawienia.poczatek = Swift.min(pozycja, ustawienia.koniec)
+                } else {
+                    ustawienia.koniec = Swift.max(pozycja, ustawienia.poczatek)
+                }
+            }
+            .onEnded { _ in przeciagany = nil }
     }
 
     private var suwakiPrzyciecia: some View {
@@ -175,29 +214,128 @@ struct EdytorSampla: View {
     }
 }
 
-/// Rysunek przebiegu: pionowa kreska min–max na kolumnę, części poza
-/// zaznaczeniem (Start…End) przyciemnione.
+/// Rysunek przebiegu — wszystko, co mini edytor zrobi z dźwiękiem:
+///  - poza Start…End: oryginał przygaszony, na ciemnym tle (to odpadnie),
+///  - w zaznaczeniu: WYNIK — już z fade, gain i normalizacją, więc widać,
+///    jak dźwięk się zgłaśnia i ścisza; przester na czerwono,
+///  - obszary Fade podświetlone na żółto, z krzywą głośności,
+///  - Start i End jako pomarańczowe znaczniki z uchwytami.
 private struct Przebieg: View {
-    let szczyty: [(min: Float, max: Float)]
+    let oryginal: [(min: Float, max: Float)]
+    let wynik: [(min: Float, max: Float)]
     let od: Double
     let doKonca: Double
+    let narastanie: Double
+    let wygaszanie: Double
+
+    static let kolorZnacznika = Color(red: 1.0, green: 0.55, blue: 0.1)
+    static let kolorFade = Color(red: 1.0, green: 0.85, blue: 0.2)
+    static let kolorWyniku = Color(red: 0.35, green: 0.8, blue: 1.0)
 
     var body: some View {
         Canvas { kontekst, rozmiar in
-            let n = szczyty.count
-            guard n > 0 else { return }
-            let srodek = rozmiar.height / 2
-            let szerokosc = rozmiar.width / CGFloat(n)
-            for (i, s) in szczyty.enumerated() {
-                let x = CGFloat(i) * szerokosc
-                let pozycja = Double(i) / Double(n)
-                let wZaznaczeniu = pozycja >= od && pozycja <= doKonca
-                var linia = Path()
-                linia.move(to: CGPoint(x: x, y: srodek - CGFloat(s.max) * srodek))
-                linia.addLine(to: CGPoint(x: x, y: srodek - CGFloat(s.min) * srodek + 1))
-                kontekst.stroke(linia,
-                                with: .color(wZaznaczeniu ? Color.accentColor : Color.secondary.opacity(0.35)),
-                                lineWidth: Swift.max(1, szerokosc))
+            rysujOdpadajace(kontekst, rozmiar)
+            rysujObszaryFade(kontekst, rozmiar)
+            rysujWynik(kontekst, rozmiar)
+            rysujKrzywaGlosnosci(kontekst, rozmiar)
+            rysujZnaczniki(kontekst, rozmiar)
+        }
+    }
+
+    private func x(_ ulamek: Double, _ r: CGSize) -> CGFloat {
+        CGFloat(Swift.min(Swift.max(ulamek, 0), 1)) * r.width
+    }
+
+    private func kreska(_ k: GraphicsContext, x: CGFloat, min: Float, max: Float,
+                        r: CGSize, szerokosc: CGFloat, kolor: Color) {
+        let srodek = r.height / 2
+        var linia = Path()
+        linia.move(to: CGPoint(x: x, y: srodek - CGFloat(max) * srodek * 0.95))
+        linia.addLine(to: CGPoint(x: x, y: srodek - CGFloat(min) * srodek * 0.95 + 1))
+        k.stroke(linia, with: .color(kolor), lineWidth: szerokosc)
+    }
+
+    /// Oryginał poza zaznaczeniem — przygaszony, to zostanie odcięte.
+    private func rysujOdpadajace(_ k: GraphicsContext, _ r: CGSize) {
+        let n = oryginal.count
+        guard n > 0 else { return }
+        let szer = Swift.max(1, r.width / CGFloat(n))
+        for (i, s) in oryginal.enumerated() {
+            let pozycja = Double(i) / Double(n)
+            guard pozycja < od || pozycja > doKonca else { continue }
+            kreska(k, x: CGFloat(i) * r.width / CGFloat(n), min: s.min, max: s.max,
+                   r: r, szerokosc: szer, kolor: Color.white.opacity(0.18))
+        }
+    }
+
+    private func rysujObszaryFade(_ k: GraphicsContext, _ r: CGSize) {
+        let kolor = Self.kolorFade.opacity(0.16)
+        if narastanie > 0 {
+            k.fill(Path(CGRect(x: x(od, r), y: 0,
+                               width: x(od + narastanie, r) - x(od, r), height: r.height)),
+                   with: .color(kolor))
+        }
+        if wygaszanie > 0 {
+            let a = x(doKonca - wygaszanie, r)
+            k.fill(Path(CGRect(x: a, y: 0, width: x(doKonca, r) - a, height: r.height)),
+                   with: .color(kolor))
+        }
+    }
+
+    /// Wynik obróbki rozciągnięty na zaznaczenie — dokładnie to, co pójdzie
+    /// na kartę. Przester (pełna skala) na czerwono.
+    private func rysujWynik(_ k: GraphicsContext, _ r: CGSize) {
+        let n = wynik.count
+        guard n > 0 else { return }
+        let poczatek = x(od, r)
+        let szerokoscZaznaczenia = x(doKonca, r) - poczatek
+        let szer = Swift.max(1, szerokoscZaznaczenia / CGFloat(n))
+        for (i, s) in wynik.enumerated() {
+            let przester = s.max >= 0.999 || s.min <= -0.999
+            kreska(k, x: poczatek + CGFloat(i) * szerokoscZaznaczenia / CGFloat(n),
+                   min: s.min, max: s.max, r: r, szerokosc: szer,
+                   kolor: przester ? Color.red : Self.kolorWyniku)
+        }
+    }
+
+    /// Krzywa głośności: 0 → pełna na długości Fade in, pełna, pełna → 0 na
+    /// długości Fade out. Rysowana symetrycznie — u góry i u dołu.
+    private func rysujKrzywaGlosnosci(_ k: GraphicsContext, _ r: CGSize) {
+        guard narastanie > 0 || wygaszanie > 0 else { return }
+        let srodek = r.height / 2
+        let punkty: [(Double, CGFloat)] = [
+            (od, narastanie > 0 ? 0 : 1),
+            (od + narastanie, 1),
+            (doKonca - wygaszanie, 1),
+            (doKonca, wygaszanie > 0 ? 0 : 1),
+        ]
+        for znak in [CGFloat(-1), CGFloat(1)] {
+            var linia = Path()
+            for (j, p) in punkty.enumerated() {
+                let punkt = CGPoint(x: x(p.0, r), y: srodek + znak * p.1 * srodek * 0.95)
+                if j == 0 { linia.move(to: punkt) } else { linia.addLine(to: punkt) }
+            }
+            k.stroke(linia, with: .color(Self.kolorFade), lineWidth: 2)
+        }
+    }
+
+    /// Start i End: grube pomarańczowe linie z trójkątnymi uchwytami.
+    private func rysujZnaczniki(_ k: GraphicsContext, _ r: CGSize) {
+        for (ulamek, wPrawo) in [(od, true), (doKonca, false)] {
+            let px = x(ulamek, r)
+            var linia = Path()
+            linia.move(to: CGPoint(x: px, y: 0))
+            linia.addLine(to: CGPoint(x: px, y: r.height))
+            k.stroke(linia, with: .color(Self.kolorZnacznika), lineWidth: 2.5)
+            let kierunek: CGFloat = wPrawo ? 1 : -1
+            for y in [CGFloat(0), r.height] {
+                let pion: CGFloat = y == 0 ? 1 : -1
+                var uchwyt = Path()
+                uchwyt.move(to: CGPoint(x: px, y: y))
+                uchwyt.addLine(to: CGPoint(x: px + 10 * kierunek, y: y))
+                uchwyt.addLine(to: CGPoint(x: px, y: y + 12 * pion))
+                uchwyt.closeSubpath()
+                k.fill(uchwyt, with: .color(Self.kolorZnacznika))
             }
         }
     }

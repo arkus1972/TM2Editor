@@ -42,6 +42,11 @@ enum FieldEncoding: Codable, Equatable {
     /// Tak zwykle koduje się zakresy symetryczne (Pan L32..R32, Pitch -48..+48).
     case biased(bias: Int, min: Int, max: Int)
 
+    /// Jeden bajt ZE ZNAKIEM (uzupełnienie do dwóch). Tak moduł zapisuje
+    /// OutGain: +12 dB to 12, −6 dB to 250 (0xFA) — zmierzone 2026-11-23
+    /// (BackupA i BackupE).
+    case signed8(min: Int, max: Int)
+
     /// Dwa bajty, little-endian.
     case unsigned16LE(min: Int, max: Int)
 
@@ -83,7 +88,7 @@ enum FieldEncoding: Codable, Equatable {
     /// Ile bajtów zajmuje pole.
     var byteLength: Int {
         switch self {
-        case .unsigned, .biased, .bit, .enumeration, .boolean:
+        case .unsigned, .biased, .signed8, .bit, .enumeration, .boolean:
             return 1
         case .unsigned16LE, .unsigned16BE, .signed16LE:
             return 2
@@ -97,7 +102,7 @@ enum FieldEncoding: Codable, Equatable {
         switch self {
         case .unsigned(let min, let max):
             return min...max
-        case .biased(_, let min, let max):
+        case .biased(_, let min, let max), .signed8(let min, let max):
             return min...max
         case .unsigned16LE(let min, let max), .unsigned16BE(let min, let max),
              .signed16LE(let min, let max):

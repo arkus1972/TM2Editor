@@ -954,6 +954,50 @@ final class BackupFileTests: XCTestCase {
 
     /// Pola, które mają własny sposób wyświetlania, muszą go realnie mieć
     /// w zmierzonym layoucie — inaczej poprawka widoku nic nie zmienia.
+    /// Ustawienia SYSTEM w nagłówku — bajty 0x2C…0x35 z BackupE (Contrast 6,
+    /// Brightness 9, Ni-MH, Limiter −23 dB, OutGain −6 dB, TrgPreview OFF,
+    /// Trig Lock ON, MIDI Ch 14, PrgChg Rx OFF, PrgChg Tx OFF).
+    func testSystemSettingsReadLikeTheModule() throws {
+        var bytes = [UInt8](repeating: 0, count: 124_748)
+        bytes.replaceSubrange(0x2C...0x35, with: [0x05, 0x08, 0x01, 0x01, 0xFA, 0x00, 0x01, 0x0D, 0x00, 0x00])
+        let plik = BackupFile(bytes: bytes, layout: .mapped2026_09_02)
+        func pokaz(_ id: String) throws -> String {
+            let pole = try XCTUnwrap(plik.layout.globalFields.first { $0.id == id }, id)
+            let v = try XCTUnwrap(plik.value(of: pole)?.numberValue, id)
+            return (pole.display ?? .plain).text(for: v)
+        }
+        XCTAssertEqual(try pokaz("sys.contrast"), "6")
+        XCTAssertEqual(try pokaz("sys.brightness"), "9")
+        XCTAssertEqual(try pokaz("sys.limiter"), "-23 dB")
+        XCTAssertEqual(try pokaz("sys.outGain"), "-6 dB")
+        XCTAssertEqual(try pokaz("sys.midiChannel"), "14")
+        let bateria = try XCTUnwrap(plik.layout.globalFields.first { $0.id == "sys.batteryType" })
+        XCTAssertEqual(plik.value(of: bateria), .number(1))
+        for (id, oczekiwane) in [("sys.trgPreview", 0), ("sys.trigLock", 1),
+                                 ("sys.programChangeRx", 0), ("sys.programChangeTx", 0)] {
+            let pole = try XCTUnwrap(plik.layout.globalFields.first { $0.id == id }, id)
+            XCTAssertEqual(plik.value(of: pole), .number(oczekiwane), id)
+        }
+
+        // Pozostałe zmierzone punkty.
+        let limiter = try XCTUnwrap(plik.layout.globalFields.first { $0.id == "sys.limiter" }?.display)
+        XCTAssertEqual(limiter.text(for: 14), "-10 dB")
+        XCTAssertEqual(limiter.text(for: 24), "OFF")
+        XCTAssertEqual(limiter.text(for: 0), "-24 dB")
+    }
+
+    /// OutGain: bajt ze znakiem, zapis i odczyt w obie strony.
+    func testSigned8RoundTrip() throws {
+        var plik = BackupFile(bytes: [UInt8](repeating: 0, count: 124_748), layout: .mapped2026_09_02)
+        let pole = try XCTUnwrap(plik.layout.globalFields.first { $0.id == "sys.outGain" })
+        try plik.setValue(.number(-6), for: pole)
+        XCTAssertEqual(plik.byte(at: 0x30), 0xFA)
+        XCTAssertEqual(plik.value(of: pole), .number(-6))
+        try plik.setValue(.number(12), for: pole)
+        XCTAssertEqual(plik.byte(at: 0x30), 12)
+        XCTAssertThrowsError(try plik.setValue(.number(13), for: pole))
+    }
+
     /// Krzywe przeklikane na module (23.11): siedem, z EXP1/EXP2, których
     /// stara instrukcja nie zna. raw 6 = LOUD2 zmierzone wcześniej.
     func testCurveNamesFromModule() throws {

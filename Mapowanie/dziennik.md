@@ -63,3 +63,21 @@ a w kicie 70 LoCut/HiCut zostały na 800 Hz / FLAT po przeklikaniu list.
 Mapa parametrów: `Sources/TM2Editor/Model/ParametryEfektow.swift`.
 
 ---
+## 2026-11-23 — ustawienia SYSTEM: pliki pomiarowe
+
+`archiwum/system-a…f.bin` — sześć backupów, każdy na poprzednim (A po
+`efekty-kolejnosc.bin`). Wszystkie zmiany w nagłówku 0x2C…0x35:
+
+| Plik | Zmiana na module | Bajty |
+|---|---|---|
+| a | Contrast 6, Brightness na minimum (1 — wynika ze skali z d), OutGain +12, MIDI Ch 3, TrgPreview OFF, Trig Lock ON | 0x2C 2→5, 0x2D 7→0, 0x30 0→12, 0x31 1→0, 0x32 0→1, 0x33 9→2 |
+| b | PrgChg Rx OFF, Battery Ni-MH | 0x34 1→0, 0x2E 0→1 |
+| c | PrgChg Tx OFF | 0x35 1→0 |
+| d | Brightness 9, Limiter −23, MIDI Ch 14 | 0x2D 0→8, 0x2F 24→1, 0x33 2→13 |
+| e | OutGain −6 | 0x30 12→250 |
+| f | Limiter −10 | 0x2F 1→14 |
+
+W `a` przy okazji: kit 77 DELAY z wartościami domyślnymi i Curve TRIG IN 1 na
+LOUD2 (po przeklikaniu listy krzywych) — nie należą do serii.
+
+---

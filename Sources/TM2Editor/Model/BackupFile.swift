@@ -191,6 +191,10 @@ struct BackupFile {
             guard let raw = byte(at: offset) else { return nil }
             return .number(Int(raw) - bias)
 
+        case .signed8:
+            guard let raw = byte(at: offset) else { return nil }
+            return .number(Int(Int8(bitPattern: raw)))
+
         case .unsigned16LE:
             guard let raw = slice(at: offset, length: 2) else { return nil }
             return .number(Int(raw[0]) | (Int(raw[1]) << 8))
@@ -299,6 +303,15 @@ struct BackupFile {
             let number = try requireNumber(value, fieldID: fieldID, range: min...max)
             let word = try requireWord(number, fieldID: fieldID)
             try setSlice([UInt8(word >> 8), UInt8(word & 0xFF)], at: offset)
+
+        case .signed8(let min, let max):
+            let number = try requireNumber(value, fieldID: fieldID, range: min...max)
+            guard let signed = Int8(exactly: number) else {
+                throw BackupFileError.valueOutOfRange(fieldID: fieldID,
+                                                      value: number,
+                                                      allowed: -128...127)
+            }
+            try setByte(UInt8(bitPattern: signed), at: offset)
 
         case .signed16LE(let min, let max):
             let number = try requireNumber(value, fieldID: fieldID, range: min...max)

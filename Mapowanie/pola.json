@@ -146,6 +146,76 @@
       "opis": "Nazwa backupu z naglowka -- ta, ktora modul pokazuje na liscie przy BACKUP LOAD. Po magicznym 'TM-2' stoi znacznik 'BK' (0x08..0x09), potem osiem znakow ASCII dopelnionych spacjami. DLUGOSC 8 JEST HIPOTEZA: po osmym znaku stoja dwie spacje, potem zera."
     },
     {
+      "nazwa": "sys.contrast",
+      "offset": 44,
+      "dlugosc": 1,
+      "kodowanie": "uint8",
+      "opis": "LCD Contrast 1..10 = raw 0..9. Zmierzone BackupA: 6 -> 5. To byl \"ostatni nierozpoznany bajt\" -- zmienial sie 4->3->2, bo Arek przestawial kontrast."
+    },
+    {
+      "nazwa": "sys.brightness",
+      "offset": 45,
+      "dlugosc": 1,
+      "kodowanie": "uint8",
+      "opis": "LCD Brightness 1..10 = raw 0..9. Zmierzone: 1 -> 0 (A), 9 -> 8 (D)."
+    },
+    {
+      "nazwa": "sys.battery_type",
+      "offset": 46,
+      "dlugosc": 1,
+      "kodowanie": "uint8",
+      "opis": "Battery Type: 0 ALKALINE, 1 Ni-MH. Zmierzone BackupB."
+    },
+    {
+      "nazwa": "sys.limiter",
+      "offset": 47,
+      "dlugosc": 1,
+      "kodowanie": "uint8",
+      "opis": "Limiter: raw 0..23 = -24..-1 dB, 24 = OFF (fabrycznie). Zmierzone: -23 -> 1 (D/E), -10 -> 14 (F)."
+    },
+    {
+      "nazwa": "sys.out_gain",
+      "offset": 48,
+      "dlugosc": 1,
+      "kodowanie": "int8",
+      "opis": "OutGain -6..+12 dB, bajt ze znakiem: +12 -> 12 (A), -6 -> 250 (E). Fabrycznie 0."
+    },
+    {
+      "nazwa": "sys.trg_preview",
+      "offset": 49,
+      "dlugosc": 1,
+      "kodowanie": "uint8",
+      "opis": "TrgPreview: 1 = ON (fabrycznie). OFF -> 0 (A)."
+    },
+    {
+      "nazwa": "sys.trig_lock",
+      "offset": 50,
+      "dlugosc": 1,
+      "kodowanie": "uint8",
+      "opis": "Trig Lock: 1 = ON. ON -> 1 (A)."
+    },
+    {
+      "nazwa": "sys.midi_ch",
+      "offset": 51,
+      "dlugosc": 1,
+      "kodowanie": "uint8",
+      "opis": "MIDI Ch 1..16 = raw 0..15. Zmierzone: 3 -> 2 (A), 14 -> 13 (D), fabryczne 10 -> 9."
+    },
+    {
+      "nazwa": "sys.prgchg_rx",
+      "offset": 52,
+      "dlugosc": 1,
+      "kodowanie": "uint8",
+      "opis": "PrgChg Rx: 1 = ON. OFF -> 0 (B)."
+    },
+    {
+      "nazwa": "sys.prgchg_tx",
+      "offset": 53,
+      "dlugosc": 1,
+      "kodowanie": "uint8",
+      "opis": "PrgChg Tx: 1 = ON. OFF -> 0 (C)."
+    },
+    {
       "nazwa": "trigset.1.input",
       "offset": 64,
       "dlugosc": 1,
@@ -640,7 +710,6 @@
     "Co oznaczaja bajty +0x00 i +0x0A w rekordach RIM (2 i 4) -- maja wartosci, ale nie byly mierzone.",
     "Czym sa bajty +0x05 i +0x07 rekordu wejscia -- oba zmieniaja sie wylacznie razem z Type.",
     "Slot brzmienia: +0x02 (wszedzie 1), +0x16 (wszedzie 0xFFFF), +0x18, +0x1C..+0x28.",
-    "Naglowek pliku: bajt 0x2C -- OSTATNI nierozpoznany w pliku.",
     "Strefa ~101 KB zer po bloku kitow.",
     "W pliku jest 100 nazw kitow, nie 99 -- dlaczego jedna wiecej?"
   ]

@@ -989,6 +989,63 @@ extension BackupLayout {
             )
         }
 
+
+        // ---- Ustawienia SYSTEM (SHIFT + INST › SYSTEM) ----
+        //
+        // Siedzą w nagłówku pliku, 0x2C…0x35, w kolejności menu modułu.
+        // Zmierzone 2026-11-23 sześcioma backupami (BackupA…F), każdy na
+        // poprzednim, przełączniki rozłożone tak, żeby żadne dwa nie
+        // zmieniały się naraz w tę samą stronę:
+        //   0x2C Contrast    1…10 = raw 0…9   (6 → 5)
+        //   0x2D Brightness  1…10 = raw 0…9   (1 → 0, 9 → 8)
+        //   0x2E Battery     0 ALKALINE, 1 Ni-MH
+        //   0x2F Limiter     raw 0…23 = −24…−1 dB, 24 = OFF
+        //                    (−23 → 1, −10 → 14; fabryczne OFF = 24)
+        //   0x30 OutGain     bajt ze znakiem, dB wprost (+12 → 12, −6 → 250)
+        //   0x31 TrgPreview  1 = ON (fabrycznie ON)
+        //   0x32 Trig Lock   1 = ON
+        //   0x33 MIDI Ch     1…16 = raw 0…15 (3 → 2, 14 → 13, fabryczne 10 → 9)
+        //   0x34 PrgChg Rx   1 = ON
+        //   0x35 PrgChg Tx   1 = ON
+        //
+        // Przy okazji wyjaśnił się bajt 0x2C, „jedyny nierozpoznany w pliku":
+        // zmieniał się 4 → 3 → 2, bo Arek przestawiał kontrast wyświetlacza.
+        let numery: (Int) -> [String] = { ile in (1...ile).map { String($0) } }
+        let limiter: [String] = (-24 ... -1).map { "\($0) dB" } + ["OFF"]
+        layout.globalFields.removeAll {
+            $0.id == "sys.midiChannel" || $0.id == "sys.programChangeRx"
+        }
+        let systemowe: [(String, String, Int, FieldEncoding, FieldDisplay?, String)] = [
+            ("sys.contrast", "Contrast", 0x2C, .unsigned(min: 0, max: 9), .lista(numery(10)),
+             "Kontrast wyświetlacza, 1…10 = raw 0…9. Zmierzone: 6 → 5."),
+            ("sys.brightness", "Brightness", 0x2D, .unsigned(min: 0, max: 9), .lista(numery(10)),
+             "Jasność wyświetlacza, 1…10 = raw 0…9. Zmierzone: 1 → 0, 9 → 8."),
+            ("sys.batteryType", "Battery Type", 0x2E,
+             .enumeration(values: ["ALKALINE", "Ni-MH"]), nil,
+             "Zmierzone: przestawienie na drugą pozycję zmieniło 0 na 1."),
+            ("sys.limiter", "Limiter", 0x2F, .unsigned(min: 0, max: 24), .lista(limiter),
+             "Próg limitera wyjścia. Zmierzone: −23 dB → 1, −10 dB → 14, fabryczne OFF → 24. Kroki co 1 dB."),
+            ("sys.outGain", "OutGain", 0x30, .signed8(min: -6, max: 12),
+             .przesuniecie(bias: 0, unit: "dB"),
+             "Głośność wyjścia, −6…+12 dB. Bajt ze znakiem: +12 → 12, −6 → 250."),
+            ("sys.trgPreview", "TrgPreview", 0x31, .boolean, nil,
+             "Czy przyciski TRIG IN [1] [2] odtwarzają brzmienie. Fabrycznie ON."),
+            ("sys.trigLock", "Trig Lock", 0x32, .boolean, nil,
+             "Uderzenie w pad nie zmienia edytowanego triggera. Fabrycznie OFF."),
+            ("sys.midiChannel", "MIDI Ch", 0x33, .unsigned(min: 0, max: 15), .lista(numery(16)),
+             "Kanał MIDI nadawania i odbioru, 1…16 = raw 0…15. Zmierzone: 3 → 2, 14 → 13, fabryczne 10 → 9."),
+            ("sys.programChangeRx", "PrgChg Rx", 0x34, .boolean, nil,
+             "Odbiór Program Change przełącza kity."),
+            ("sys.programChangeTx", "PrgChg Tx", 0x35, .boolean, nil,
+             "Zmiana kitu wysyła Program Change."),
+        ]
+        for (id, etykieta, offset, kodowanie, wyswietlanie, notatka) in systemowe {
+            layout.globalFields.append(
+                FieldSpec(id: id, label: etykieta, scope: .global, group: .system,
+                          offset: offset, encoding: kodowanie, note: notatka,
+                          display: wyswietlanie)
+            )
+        }
         return layout
     }
 }

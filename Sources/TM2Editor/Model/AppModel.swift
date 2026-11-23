@@ -92,7 +92,45 @@ final class AppModel: ObservableObject {
     /// Wczytuje plik BACKUP. Układ startowy jest niezmapowany — dopóki seria
     /// mapowania nie jest zrobiona, aplikacja pokazuje plik, ale nie udaje,
     /// że rozumie jego zawartość.
+    /// Folder projektu otwartego backupu (Dokumenty › TM-2 Editor › …).
+    @Published var projekt: URL?
+
+    /// Otwiera backup. Plik TM-2 spoza projektu najpierw dostaje projekt —
+    /// folder ze strukturą karty, do którego trafia kopia backupu i wszystkie
+    /// sample, których używa (patrz `ProjektTM2`). Oryginał zostaje nietknięty.
     func open(url: URL) {
+        let rozmiar = (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
+        guard rozmiar == 124_748, !ProjektTM2.czyWProjekcie(url) else {
+            // Plik już w projekcie albo nie wygląda na backup TM-2 (wtedy
+            // tylko podgląd, jak dotąd) — otwieramy wprost.
+            projekt = ProjektTM2.czyWProjekcie(url)
+                ? url.deletingLastPathComponent().deletingLastPathComponent()
+                    .deletingLastPathComponent().deletingLastPathComponent()
+                : nil
+            otworzPlik(url: url)
+            return
+        }
+        do {
+            let zrodloWave = KartaSD.folderWave(dlaBackupu: url) ?? KartaSD.zapamietanyFolderWave
+            let zalozony = try ProjektTM2.zaloz(dla: url, zrodloWave: zrodloWave)
+            projekt = zalozony.korzen
+            log.append(.info, "Projekt: \(zalozony.korzen.path) — skopiowano"
+                + " \(zalozony.skopiowane) sampli z karty")
+            otworzPlik(url: zalozony.backup)
+            if !zalozony.brakujace.isEmpty {
+                let lista = zalozony.brakujace.prefix(10).joined(separator: ", ")
+                errorMessage = "\(zalozony.brakujace.count) sample file(s) used by this backup were not "
+                    + "found, so they are not in the project: \(lista). Open the backup straight "
+                    + "from the SD card (ROLAND/TM-2/Backup) to bring them along."
+                log.append(.warning, "Brak sampli: " + zalozony.brakujace.joined(separator: ", "))
+            }
+        } catch {
+            errorMessage = "Could not create the project folder: \(error.localizedDescription)"
+            log.append(.error, "Nie udało się założyć projektu: \(error)")
+        }
+    }
+
+    private func otworzPlik(url: URL) {
         do {
             let layout = LayoutStore.loadOrDefault(log: log)
             let file = try BackupFile(contentsOf: url, layout: layout)
@@ -142,6 +180,7 @@ final class AppModel: ObservableObject {
 
     func close() {
         editor = nil
+        projekt = nil
         validationWarnings = []
         log.append(.info, "Zamknięto plik")
     }

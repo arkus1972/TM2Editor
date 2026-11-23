@@ -139,6 +139,19 @@ struct WyborBrzmienia: View {
         if let ogg = UTType(filenameExtension: "ogg") { typy.append(ogg) }
         panel.allowedContentTypes = typy
         guard panel.runModal() == .OK, let zrodlo = panel.url else { return }
+
+        // Plik spoza WAVE projektu — najpierw zgoda (prośba Arka). Na kartę
+        // i tak idzie kopia zapisana na czysto; oryginał zostaje na miejscu.
+        if KartaSD.sciezkaWzgledna(zrodlo, wave: wave) == nil {
+            let alert = NSAlert()
+            alert.messageText = "Copy \(zrodlo.lastPathComponent) into the project?"
+            alert.informativeText = "The file is outside the project's WAVE folder. The editor will "
+                + "save a copy there as 44.1 kHz / 16-bit WAV (after you edit it, if you like). "
+                + "Your original file stays where it is."
+            alert.addButton(withTitle: "Copy and Edit")
+            alert.addButton(withTitle: "Cancel")
+            guard alert.runModal() == .alertFirstButtonReturn else { return }
+        }
         otworzWEdytorze(zrodlo, wave: wave)
     }
 

@@ -809,6 +809,12 @@ final class KitEditor: ObservableObject {
         return zapisane
     }
 
+    /// Po zapisie całości przez projekt (Save As do struktury modułu) —
+    /// plakietka niezapisanych zmian gaśnie tak samo jak po `save(to:)`.
+    func oznaczJakoZapisane() {
+        savedChangeID = changes.last?.id
+    }
+
     func save(to url: URL) {
         // Tekst wpisany bez Entera też jest zmianą, której użytkownik
         // oczekuje w pliku.

@@ -25,8 +25,56 @@ extension AppModel {
         open(url: url)
     }
 
+    /// Save As: w projekcie — cała struktura modułu (backup pod kolejnym
+    /// numerem + używane sample) na kartę albo do wskazanego folderu.
+    /// Poza projektem (plik, który nie wyglądał na backup TM-2) — jak dawniej,
+    /// sam plik.
     func presentSavePanel() {
         guard let editor else { return }
+        if projekt != nil, let waveProjektu = editor.folderWave {
+            zapiszProjekt(editor, waveProjektu: waveProjektu)
+            return
+        }
+        zapiszSamPlik(editor)
+    }
+
+    private func zapiszProjekt(_ editor: KitEditor, waveProjektu: URL) {
+        let panel = NSOpenPanel()
+        panel.title = "Save to SD Card or Folder"
+        panel.message = "Choose the SD card (or any folder). The editor writes ROLAND/TM-2/Backup/"
+            + "BKUP-nnn.TM0 under the next free number and copies the WAV files the backup uses "
+            + "to ROLAND/TM-2/WAVE. Nothing there is deleted or overwritten."
+        panel.prompt = "Save Here"
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.canCreateDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.directoryURL = URL(fileURLWithPath: "/Volumes", isDirectory: true)
+        guard panel.runModal() == .OK, let wybrany = panel.url else { return }
+
+        editor.flushPendingText()
+        let tm2 = ProjektTM2.tm2Docelowe(zWybranego: wybrany)
+        do {
+            let raport = try ProjektTM2.zapisz(editor.file, waveProjektu: waveProjektu, doTM2: tm2)
+            // Kopia robocza w projekcie też dostaje zmiany — to nasz plik,
+            // nie oryginał z karty, więc wolno go aktualizować.
+            if let roboczy = editor.file.sourceURL {
+                try editor.file.write(to: roboczy)
+            }
+            editor.oznaczJakoZapisane()
+            log.append(.info, raport.opis.replacingOccurrences(of: "\n", with: " "))
+            let alert = NSAlert()
+            alert.messageText = "Saved"
+            alert.informativeText = raport.opis
+                + "\n\nOn the module: BACKUP LOAD › \(raport.backup.lastPathComponent)."
+            alert.runModal()
+        } catch {
+            errorMessage = "Save failed: \(error.localizedDescription)"
+            log.append(.error, "Zapis projektu nie powiódł się: \(error)")
+        }
+    }
+
+    private func zapiszSamPlik(_ editor: KitEditor) {
 
         let panel = NSSavePanel()
         panel.title = "Save Edited Backup"

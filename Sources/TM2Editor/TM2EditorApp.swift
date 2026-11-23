@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 /// Punkt wejścia aplikacji.
@@ -30,6 +31,13 @@ struct TM2EditorApp: App {
                 }
                 .keyboardShortcut("s", modifiers: [.command, .shift])
                 .disabled(!model.hasOpenFile)
+
+                Button("Show Project in Finder") {
+                    if let projekt = model.projekt {
+                        NSWorkspace.shared.activateFileViewerSelecting([projekt])
+                    }
+                }
+                .disabled(model.projekt == nil)
 
                 Divider()
 

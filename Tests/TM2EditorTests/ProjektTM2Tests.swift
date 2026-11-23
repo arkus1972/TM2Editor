@@ -1,0 +1,127 @@
+import CryptoKit
+import XCTest
+@testable import TM2Editor
+
+/// Projekt ze strukturą karty: zakładanie (kopia backupu i sampli) i zapis
+/// całości na kartę, z pilnowaniem, żeby niczego tam nie nadpisać.
+final class ProjektTM2Tests: XCTestCase {
+
+    private var baza: URL!
+
+    override func setUpWithError() throws {
+        baza = FileManager.default.temporaryDirectory
+            .appendingPathComponent("projekt-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: baza, withIntermediateDirectories: true)
+    }
+
+    override func tearDownWithError() throws {
+        try? FileManager.default.removeItem(at: baza)
+    }
+
+    /// Backup z samplami: kit 1 head = TEST_A.wav, kit 1 rim = TESTY/TEST_C.wav,
+    /// kit 2 head = BRAK.wav, kit 2 rim = TEST_A.wav (ten sam plik drugi raz).
+    private func bajtyZSamplami() -> [UInt8] {
+        var b = [UInt8](repeating: 0, count: 124_748)
+        func ustaw(kit: Int, pad: Int, _ sciezka: String) {
+            let slot = 0x7C + (kit - 1) * 234 + 0x42 + (pad - 1) * 42
+            b[slot + 2] = 2
+            let wpis = 0x5AFA + ((kit - 1) * 4 + (pad - 1)) * 256
+            let t = Array(sciezka.utf8)
+            b.replaceSubrange(wpis..<(wpis + t.count), with: t)
+        }
+        ustaw(kit: 1, pad: 1, "TEST_A.wav")
+        ustaw(kit: 1, pad: 2, "TESTY/TEST_C.wav")
+        ustaw(kit: 2, pad: 1, "BRAK.wav")
+        ustaw(kit: 2, pad: 2, "TEST_A.wav")
+        // Pad z „bankiem" 1 i śmieciami w tablicy — nie jest samplem.
+        let wpis = 0x5AFA + 2 * 256
+        b.replaceSubrange(wpis..<(wpis + 5), with: Array("STARY".utf8))
+        return b
+    }
+
+    private func zapiszPlik(_ dane: Data, _ url: URL) throws {
+        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(),
+                                                withIntermediateDirectories: true)
+        try dane.write(to: url)
+    }
+
+    func testSciezkiSampliBezPowtorzen() {
+        XCTAssertEqual(ProjektTM2.sciezkiSampli(w: bajtyZSamplami()),
+                       ["TEST_A.wav", "TESTY/TEST_C.wav", "BRAK.wav"])
+        XCTAssertEqual(ProjektTM2.wpisySampli(w: bajtyZSamplami()).count, 4)
+        XCTAssertTrue(ProjektTM2.sciezkiSampli(w: [1, 2, 3]).isEmpty)
+    }
+
+    func testZalozenieProjektuKopiujeBackupISample() throws {
+        let karta = baza.appendingPathComponent("KARTA/ROLAND/TM-2")
+        let oryginal = karta.appendingPathComponent("Backup/BKUP-004.TM0")
+        try zapiszPlik(Data(bajtyZSamplami()), oryginal)
+        try zapiszPlik(Data("A".utf8), karta.appendingPathComponent("WAVE/TEST_A.wav"))
+        try zapiszPlik(Data("C".utf8), karta.appendingPathComponent("WAVE/TESTY/TEST_C.wav"))
+
+        let projekty = baza.appendingPathComponent("Projekty")
+        let p = try ProjektTM2.zaloz(dla: oryginal,
+                                     zrodloWave: KartaSD.folderWave(dlaBackupu: oryginal),
+                                     katalog: projekty, data: Date(timeIntervalSince1970: 0))
+        XCTAssertEqual(p.skopiowane, 2)
+        XCTAssertEqual(p.brakujace, ["BRAK.wav"])
+        XCTAssertEqual(p.backup.lastPathComponent, "BKUP-004.TM0")
+        XCTAssertEqual(try Data(contentsOf: p.backup), Data(bajtyZSamplami()))
+        let wave = p.korzen.appendingPathComponent("ROLAND/TM-2/WAVE")
+        XCTAssertEqual(try Data(contentsOf: wave.appendingPathComponent("TESTY/TEST_C.wav")), Data("C".utf8))
+        XCTAssertTrue(ProjektTM2.czyWProjekcie(p.backup, katalog: projekty))
+        XCTAssertFalse(ProjektTM2.czyWProjekcie(oryginal, katalog: projekty))
+
+        // Drugi projekt z tego samego backupu, w tej samej sekundzie, nie
+        // nadpisuje pierwszego.
+        let drugi = try ProjektTM2.zaloz(dla: oryginal, zrodloWave: nil, katalog: projekty,
+                                         data: Date(timeIntervalSince1970: 0))
+        XCTAssertNotEqual(drugi.korzen, p.korzen)
+        XCTAssertEqual(drugi.brakujace.count, 3)
+    }
+
+    func testTM2DoceloweZRoznychWskazan() {
+        let karta = baza.appendingPathComponent("KARTA")
+        let tm2 = karta.appendingPathComponent("ROLAND/TM-2").path
+        XCTAssertEqual(ProjektTM2.tm2Docelowe(zWybranego: karta).path, tm2)
+        XCTAssertEqual(ProjektTM2.tm2Docelowe(zWybranego: karta.appendingPathComponent("ROLAND")).path, tm2)
+        XCTAssertEqual(ProjektTM2.tm2Docelowe(zWybranego: karta.appendingPathComponent("ROLAND/TM-2")).path, tm2)
+        XCTAssertEqual(ProjektTM2.tm2Docelowe(zWybranego: karta.appendingPathComponent("ROLAND/TM-2/Backup")).path, tm2)
+    }
+
+    /// Zapis na „kartę", na której już coś jest: backup dostaje kolejny numer,
+    /// identyczny sampel jest pomijany, inny o tej samej nazwie — kopiowany
+    /// pod nową nazwą, a ścieżka w zapisanym backupie poprawiona. Niczego na
+    /// karcie nie nadpisano. Suma MD5 zapisanego pliku poprawna.
+    func testZapisNaKarteBezNadpisywania() throws {
+        let projektWave = baza.appendingPathComponent("P/ROLAND/TM-2/WAVE")
+        try zapiszPlik(Data("A-nowy".utf8), projektWave.appendingPathComponent("TEST_A.wav"))
+        try zapiszPlik(Data("C".utf8), projektWave.appendingPathComponent("TESTY/TEST_C.wav"))
+
+        let karta = baza.appendingPathComponent("KARTA/ROLAND/TM-2")
+        try zapiszPlik(Data("stary backup".utf8), karta.appendingPathComponent("Backup/BKUP-003.TM0"))
+        try zapiszPlik(Data("A-inny".utf8), karta.appendingPathComponent("WAVE/TEST_A.wav"))
+        try zapiszPlik(Data("C".utf8), karta.appendingPathComponent("WAVE/TESTY/TEST_C.wav"))
+
+        let plik = BackupFile(bytes: bajtyZSamplami(), layout: .mapped2026_09_02)
+        let raport = try ProjektTM2.zapisz(plik, waveProjektu: projektWave, doTM2: karta)
+
+        XCTAssertEqual(raport.backup.lastPathComponent, "BKUP-004.TM0")
+        XCTAssertEqual(raport.skopiowane, 1)
+        XCTAssertEqual(raport.pominiete, 1)
+        XCTAssertEqual(raport.przemianowane.map { $0.1 }, ["TEST_A_2.wav"])
+        XCTAssertEqual(raport.brakujace, ["BRAK.wav"])
+
+        // Na karcie nic nie nadpisane.
+        XCTAssertEqual(try Data(contentsOf: karta.appendingPathComponent("WAVE/TEST_A.wav")), Data("A-inny".utf8))
+        XCTAssertEqual(try Data(contentsOf: karta.appendingPathComponent("Backup/BKUP-003.TM0")),
+                       Data("stary backup".utf8))
+        XCTAssertEqual(try Data(contentsOf: karta.appendingPathComponent("WAVE/TEST_A_2.wav")), Data("A-nowy".utf8))
+
+        // Oba pady z TEST_A grają teraz TEST_A_2 — w zapisanym pliku.
+        let zapisany = [UInt8](try Data(contentsOf: raport.backup))
+        let sciezki = ProjektTM2.wpisySampli(w: zapisany).map { $0.1 }
+        XCTAssertEqual(sciezki, ["TEST_A_2.wav", "TESTY/TEST_C.wav", "BRAK.wav", "TEST_A_2.wav"])
+        XCTAssertEqual(Array(zapisany.suffix(16)), Array(Insecure.MD5.hash(data: Data(zapisany.dropLast(16)))))
+    }
+}

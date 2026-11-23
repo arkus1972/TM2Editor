@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 /// Główne okno.
@@ -252,9 +253,85 @@ struct TabSwitcher: View {
                 .buttonStyle(.plain)
             }
             Spacer()
+            PasekNarzedzi()
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
+    }
+}
+
+// MARK: - Pasek narzędzi
+
+/// Najczęstsze polecenia z menu File i Tools pod ręką, na pasku zakładek
+/// (prośba Arka). Menu zostają — to tylko skróty do tych samych funkcji.
+/// Undo, Redo i Save As są w pasku nagłówka nad zakładkami.
+struct PasekNarzedzi: View {
+
+    @EnvironmentObject private var model: AppModel
+
+    var body: some View {
+        // Przy wąskim oknie same ikony (z podpowiedzią po najechaniu),
+        // przy szerszym — ikony z napisami.
+        ViewThatFits(in: .horizontal) {
+            przyciski(zNapisami: true)
+            przyciski(zNapisami: false)
+        }
+    }
+
+    private func przyciski(zNapisami: Bool) -> some View {
+        HStack(spacing: 2) {
+            przycisk("Open", ikona: "folder", pomoc: "Open a backup file (⌘O)",
+                     zNapisem: zNapisami) {
+                model.presentOpenPanel()
+            }
+            Divider().frame(height: 18).padding(.horizontal, 4)
+            przycisk("Copy to Card", ikona: "sdcard",
+                     pomoc: "Copy this backup and its samples to the SD card in one go",
+                     zNapisem: zNapisami) {
+                model.kopiujNaKarte()
+            }
+            .disabled(model.projekt == nil)
+            przycisk("Missing Samples", ikona: "questionmark.folder",
+                     pomoc: "Find sample files this backup uses but the project does not have",
+                     zNapisem: zNapisami) {
+                model.znajdzBrakujaceSample()
+            }
+            .disabled(model.projekt == nil)
+            przycisk("Even Out Levels", ikona: "slider.horizontal.3",
+                     pomoc: "Measure all card samples of this backup and bring them to one loudness",
+                     zNapisem: zNapisami) {
+                model.pokazWyrownanie = true
+            }
+            .disabled(model.projekt == nil || model.editor == nil)
+            przycisk("Show in Finder", ikona: "arrow.up.forward.app",
+                     pomoc: "Show the folder with ROLAND/TM-2 in Finder",
+                     zNapisem: zNapisami) {
+                if let projekt = model.projekt {
+                    NSWorkspace.shared.activateFileViewerSelecting([projekt])
+                }
+            }
+            .disabled(model.projekt == nil)
+        }
+    }
+
+    @ViewBuilder
+    private func przycisk(_ tytul: String, ikona: String, pomoc: String, zNapisem: Bool,
+                          akcja: @escaping () -> Void) -> some View {
+        Button(action: akcja) {
+            Group {
+                if zNapisem {
+                    Label(tytul, systemImage: ikona)
+                } else {
+                    Image(systemName: ikona)
+                }
+            }
+            .font(.callout)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 6)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help(zNapisem ? pomoc : tytul + " — " + pomoc)
     }
 }
 

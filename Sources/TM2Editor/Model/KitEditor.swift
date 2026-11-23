@@ -459,9 +459,12 @@ final class KitEditor: ObservableObject {
         return Int(b[0]) | (Int(b[1]) << 8)
     }
 
-    /// Folder WAVE na karcie, z której otwarto backup — tam idą sample.
+    /// Folder WAVE, do którego idą sample: obok backupu, jeśli otwarto go
+    /// z karty (albo z kopii folderu ROLAND), a jeśli nie — wskazany wcześniej
+    /// ręcznie i zapamiętany.
     var folderWave: URL? {
         file.sourceURL.flatMap { KartaSD.folderWave(dlaBackupu: $0) }
+            ?? KartaSD.zapamietanyFolderWave
     }
 
     /// Przypisuje padowi plik WAV z karty: slot dostaje „bank" 2 (karta)

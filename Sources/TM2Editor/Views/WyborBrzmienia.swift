@@ -102,11 +102,32 @@ struct WyborBrzmienia: View {
 
     // MARK: - Akcje
 
-    private func wybierzPlik() {
-        guard let wave = editor.folderWave else {
-            pokazKomunikat(KartaSD.Blad.nieNaKarcie.localizedDescription)
-            return
+    /// Folder WAVE: znany z położenia backupu albo zapamiętany; jeśli żadnego
+    /// nie ma, pytamy raz o kartę (lub jej kopię) i zapamiętujemy odpowiedź.
+    private func ustalFolderWave() -> URL? {
+        if let wave = editor.folderWave { return wave }
+        let panel = NSOpenPanel()
+        panel.title = "Where Is Your SD Card?"
+        panel.message = "This backup is not inside a ROLAND/TM-2 folder, so the editor does not know "
+            + "where to put the WAV files. Choose the SD card, or a copy of its ROLAND folder. "
+            + "The editor remembers your choice."
+        panel.prompt = "Use This Folder"
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+        guard panel.runModal() == .OK, let wybrany = panel.url else { return nil }
+        guard let wave = KartaSD.folderWave(zWybranego: wybrany) else {
+            pokazKomunikat("There is no ROLAND/TM-2 folder in \(wybrany.lastPathComponent). "
+                + KartaSD.Blad.nieNaKarcie.localizedDescription)
+            return nil
         }
+        KartaSD.zapamietanyFolderWave = wave
+        editor.log.append(.info, "Sample będą zapisywane do \(wave.path)")
+        return wave
+    }
+
+    private func wybierzPlik() {
+        guard let wave = ustalFolderWave() else { return }
         let panel = NSOpenPanel()
         panel.title = "Choose an Audio File"
         panel.message = "WAV, AIFF, MP3, M4A, FLAC and OGG are converted to what the TM-2 plays. "
@@ -122,11 +143,8 @@ struct WyborBrzmienia: View {
     }
 
     private func edytujBiezacy() {
-        guard let wave = editor.folderWave,
-              let sciezka = editor.sciezkaSampla(kit: kit, trigger: trigger) else {
-            pokazKomunikat(KartaSD.Blad.nieNaKarcie.localizedDescription)
-            return
-        }
+        guard let sciezka = editor.sciezkaSampla(kit: kit, trigger: trigger),
+              let wave = ustalFolderWave() else { return }
         let plik = wave.appendingPathComponent(sciezka)
         guard FileManager.default.fileExists(atPath: plik.path) else {
             pokazKomunikat("The file WAVE/\(sciezka) is not on this card.")

@@ -32,8 +32,8 @@ enum KartaSD {
         var errorDescription: String? {
             switch self {
             case .nieNaKarcie:
-                return "Open the backup straight from the SD card (ROLAND/TM-2/Backup) "
-                    + "to assign WAV files — the editor copies them to ROLAND/TM-2/WAVE next to it."
+                return "Choose the SD card, or a copy of its ROLAND folder on your Mac. "
+                    + "The editor needs ROLAND/TM-2 to put the WAV files in ROLAND/TM-2/WAVE."
             case .brakFolderuWave(let url):
                 return "Could not create the WAVE folder: \(url.path)"
             case .zaDuzoKanalow(let ile):
@@ -55,6 +55,52 @@ enum KartaSD {
         let tm2 = backup.deletingLastPathComponent()
         guard tm2.lastPathComponent.uppercased() == "TM-2" else { return nil }
         return tm2.appendingPathComponent("WAVE", isDirectory: true)
+    }
+
+    /// Folder WAVE z folderu wskazanego przez użytkownika — wolno wskazać
+    /// kartę (albo jej kopię), folder ROLAND, TM-2 albo od razu WAVE.
+    /// `nil`, gdy w środku nie ma `ROLAND/TM-2`.
+    static func folderWave(zWybranego url: URL) -> URL? {
+        let fm = FileManager.default
+        func jestFolderem(_ u: URL) -> Bool {
+            var folder: ObjCBool = false
+            return fm.fileExists(atPath: u.path, isDirectory: &folder) && folder.boolValue
+        }
+        let nazwa = url.lastPathComponent.uppercased()
+        let tm2: URL
+        if nazwa == "WAVE", url.deletingLastPathComponent().lastPathComponent.uppercased() == "TM-2" {
+            tm2 = url.deletingLastPathComponent()
+        } else if nazwa == "TM-2" {
+            tm2 = url
+        } else if nazwa == "ROLAND" {
+            tm2 = url.appendingPathComponent("TM-2", isDirectory: true)
+        } else {
+            tm2 = url.appendingPathComponent("ROLAND/TM-2", isDirectory: true)
+        }
+        guard jestFolderem(tm2) else { return nil }
+        return tm2.appendingPathComponent("WAVE", isDirectory: true)
+    }
+
+    private static let kluczZapamietanego = "TM2Editor.folderWave"
+
+    /// Folder WAVE wskazany wcześniej ręcznie — używany, gdy backup otwarto
+    /// spoza struktury karty (np. luzem z Pobranych). Zapamiętany na tym Macu
+    /// między uruchomieniami. `nil`, gdy karty/kopii już tam nie ma.
+    static var zapamietanyFolderWave: URL? {
+        get {
+            guard let sciezka = UserDefaults.standard.string(forKey: kluczZapamietanego) else {
+                return nil
+            }
+            let wave = URL(fileURLWithPath: sciezka, isDirectory: true)
+            var folder: ObjCBool = false
+            let tm2 = wave.deletingLastPathComponent()
+            guard FileManager.default.fileExists(atPath: tm2.path, isDirectory: &folder),
+                  folder.boolValue else { return nil }
+            return wave
+        }
+        set {
+            UserDefaults.standard.set(newValue?.path, forKey: kluczZapamietanego)
+        }
     }
 
     /// Nazwa bezpieczna dla wyświetlacza modułu: polskie i inne znaki

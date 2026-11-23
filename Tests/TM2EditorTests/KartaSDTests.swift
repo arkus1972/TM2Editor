@@ -28,6 +28,22 @@ final class KartaSDTests: XCTestCase {
                      "Kopia poza kartą — nie wiadomo, gdzie jest WAVE.")
     }
 
+    /// Wskazać można kartę, folder ROLAND, TM-2 albo WAVE — za każdym razem
+    /// wychodzi ten sam folder WAVE. Folder bez ROLAND/TM-2 — odmowa.
+    func testFolderWaveZWybranegoFolderu() throws {
+        let oczekiwany = karta.appendingPathComponent("ROLAND/TM-2/WAVE").standardizedFileURL.path
+        for wskazany in ["", "ROLAND", "ROLAND/TM-2"] {
+            let url = wskazany.isEmpty ? karta! : karta.appendingPathComponent(wskazany)
+            XCTAssertEqual(KartaSD.folderWave(zWybranego: url)?.standardizedFileURL.path, oczekiwany, wskazany)
+        }
+        let wave = karta.appendingPathComponent("ROLAND/TM-2/WAVE")
+        try FileManager.default.createDirectory(at: wave, withIntermediateDirectories: true)
+        XCTAssertEqual(KartaSD.folderWave(zWybranego: wave)?.standardizedFileURL.path, oczekiwany)
+        XCTAssertNil(KartaSD.folderWave(zWybranego: karta.appendingPathComponent("ROLAND/TM-2/Backup")))
+        XCTAssertNil(KartaSD.folderWave(zWybranego: FileManager.default.temporaryDirectory
+            .appendingPathComponent("nie-karta-\(UUID().uuidString)")))
+    }
+
     func testBezpiecznaNazwa() {
         XCTAssertEqual(KartaSD.bezpiecznaNazwa("Werbel ąę.aiff"), "Werbel ae.wav")
         XCTAssertEqual(KartaSD.bezpiecznaNazwa("Kick #1 (dry).WAV"), "Kick _1 _dry_.wav")

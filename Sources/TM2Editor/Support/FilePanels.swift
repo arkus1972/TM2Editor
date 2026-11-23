@@ -53,16 +53,17 @@ extension AppModel {
         panel.canChooseDirectories = true
         panel.canCreateDirectories = true
         panel.allowsMultipleSelection = false
-        panel.directoryURL = URL(fileURLWithPath: "/Volumes", isDirectory: true)
+        // Domyślnie tam, gdzie się pracuje — przy karcie od razu karta.
+        panel.directoryURL = projekt ?? URL(fileURLWithPath: "/Volumes", isDirectory: true)
         guard panel.runModal() == .OK, let wybrany = panel.url else { return }
 
         editor.flushPendingText()
         let tm2 = ProjektTM2.tm2Docelowe(zWybranego: wybrany)
         do {
             let raport = try ProjektTM2.zapisz(editor.file, waveProjektu: waveProjektu, doTM2: tm2)
-            // Kopia robocza w projekcie też dostaje zmiany — to nasz plik,
-            // nie oryginał z karty, więc wolno go aktualizować.
-            if let roboczy = editor.file.sourceURL {
+            // Kopia robocza założona przez edytor (backup luzem) też dostaje
+            // zmiany — to nasz plik. Plik otwarty z karty to oryginał: nigdy.
+            if kopiaRobocza, let roboczy = editor.file.sourceURL {
                 try editor.file.write(to: roboczy)
             }
             editor.oznaczJakoZapisane()

@@ -96,31 +96,47 @@ final class AppModel: ObservableObject {
     /// Folder projektu otwartego backupu (Dokumenty › TM-2 Editor › …).
     @Published var projekt: URL?
 
-    /// Skąd otwarto backup, zanim powstał z niego projekt (np. karta). Stąd
-    /// Save As dociąga sample, których projekt nie ma.
+    /// Skąd otwarto backup, zanim powstała obok niego struktura karty (plik
+    /// luzem). Stąd Save As dociąga sample, których projekt nie ma.
     var oryginalBackupu: URL?
 
-    /// Otwiera backup. Plik TM-2 spoza projektu najpierw dostaje projekt —
-    /// folder ze strukturą karty, do którego trafia kopia backupu i wszystkie
-    /// sample, których używa (patrz `ProjektTM2`). Oryginał zostaje nietknięty.
+    /// Czy otwarty plik to kopia założona przez edytor (backup luzem) — tylko
+    /// wtedy Save As aktualizuje ją na miejscu. Plik otwarty z karty to
+    /// ORYGINAŁ i nigdy nie jest nadpisywany.
+    var kopiaRobocza = false
+
+    /// Otwiera backup.
+    ///  - W strukturze `ROLAND/TM-2/Backup` (karta, kopia karty): praca na
+    ///    miejscu — nic nie kopiujemy, sample idą do tamtejszego WAVE.
+    ///  - Luzem: obok pliku powstaje `<nazwa> TM-2` ze strukturą karty, kopią
+    ///    backupu i samplami, które da się znaleźć (patrz `ProjektTM2`).
+    ///  - Plik, który nie ma rozmiaru backupu TM-2: tylko podgląd, jak dotąd.
     func open(url: URL) {
         let rozmiar = (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
-        guard rozmiar == 124_748, !ProjektTM2.czyWProjekcie(url) else {
-            // Plik już w projekcie albo nie wygląda na backup TM-2 (wtedy
-            // tylko podgląd, jak dotąd) — otwieramy wprost.
-            projekt = ProjektTM2.czyWProjekcie(url)
-                ? url.deletingLastPathComponent().deletingLastPathComponent()
-                    .deletingLastPathComponent().deletingLastPathComponent()
-                : nil
-            oryginalBackupu = nil
+        oryginalBackupu = nil
+        kopiaRobocza = false
+        guard rozmiar == 124_748 else {
+            projekt = nil
             otworzPlik(url: url)
             return
         }
+        if let korzen = ProjektTM2.korzenStruktury(dlaBackupu: url) {
+            projekt = korzen
+            otworzPlik(url: url)
+            if let wave = editor?.folderWave, let bajty = editor?.file.bytes {
+                let brakujace = ProjektTM2.brakujaceSample(w: bajty, wave: wave)
+                if !brakujace.isEmpty {
+                    log.append(.warning, "Brak sampli: " + brakujace.joined(separator: ", "))
+                    zapytajOBrakujace(brakujace)
+                }
+            }
+            return
+        }
         do {
-            let zrodloWave = KartaSD.folderWave(dlaBackupu: url) ?? KartaSD.zapamietanyFolderWave
-            let zalozony = try ProjektTM2.zaloz(dla: url, zrodloWave: zrodloWave)
+            let zalozony = try ProjektTM2.zaloz(dla: url, zrodloWave: KartaSD.zapamietanyFolderWave)
             projekt = zalozony.korzen
             oryginalBackupu = url
+            kopiaRobocza = true
             log.append(.info, "Projekt: \(zalozony.korzen.path) — skopiowano"
                 + " \(zalozony.skopiowane) sampli z karty")
             otworzPlik(url: zalozony.backup)
@@ -274,6 +290,7 @@ final class AppModel: ObservableObject {
         editor = nil
         projekt = nil
         oryginalBackupu = nil
+        kopiaRobocza = false
         validationWarnings = []
         log.append(.info, "Zamknięto plik")
     }

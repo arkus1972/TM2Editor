@@ -13,9 +13,13 @@ import Foundation
 /// zapisuje całość — backup pod kolejnym numerem i używane sample —
 /// w strukturze modułu, na kartę albo do dowolnego folderu.
 ///
-/// Projekty leżą w Dokumenty › TM-2 Editor, każdy w osobnym folderze
-/// z nazwą backupu i datą, żeby ponowne otwarcie tego samego backupu z karty
-/// nigdy nie nadpisało wcześniejszej pracy.
+/// Gdzie (zmiana 2026-11-23, prośba Arka — „w tej lokalizacji zakładać od razu
+/// całą strukturę i tam pracować"):
+///  - backup już w `ROLAND/TM-2/Backup` (karta albo jej kopia) — praca NA
+///    MIEJSCU, bez kopiowania; nowe sample idą do tamtejszego WAVE;
+///  - backup luzem — obok niego folder `<nazwa> TM-2` ze strukturą karty.
+/// Wcześniej projekty lądowały w Dokumenty › TM-2 Editor; dodatkowa kopia
+/// w innym miejscu okazała się mniej czytelna niż praca tam, gdzie leży plik.
 enum ProjektTM2 {
 
     // MARK: - Geometria tablic w pliku
@@ -63,19 +67,14 @@ enum ProjektTM2 {
 
     // MARK: - Zakładanie projektu
 
-    static var katalogProjektow: URL {
-        let dokumenty = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first
-            ?? URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent("Documents")
-        return dokumenty.appendingPathComponent("TM-2 Editor", isDirectory: true)
-    }
-
-    /// Czy plik już leży w projekcie (otwierany drugi raz) — wtedy nie
-    /// zakładamy nowego.
-    static func czyWProjekcie(_ url: URL, katalog: URL = katalogProjektow) -> Bool {
-        let p = url.standardizedFileURL.resolvingSymlinksInPath().pathComponents
-        let k = katalog.standardizedFileURL.resolvingSymlinksInPath().pathComponents
-        return p.count > k.count && Array(p.prefix(k.count)) == k
-            && KartaSD.folderWave(dlaBackupu: url) != nil
+    /// Korzeń struktury karty (folder, w którym leży `ROLAND`), gdy backup
+    /// leży w `…/ROLAND/TM-2/Backup/`. `nil` dla pliku luzem.
+    static func korzenStruktury(dlaBackupu url: URL) -> URL? {
+        guard KartaSD.folderWave(dlaBackupu: url) != nil else { return nil }
+        let roland = url.deletingLastPathComponent().deletingLastPathComponent()
+            .deletingLastPathComponent()
+        guard roland.lastPathComponent.uppercased() == "ROLAND" else { return nil }
+        return roland.deletingLastPathComponent()
     }
 
     struct Zalozony {
@@ -85,23 +84,20 @@ enum ProjektTM2 {
         let brakujace: [String]
     }
 
-    /// Zakłada projekt dla backupu: kopiuje plik i wszystkie sample, których
-    /// używa, ze `zrodloWave` (WAVE karty, z której pochodzi backup).
-    static func zaloz(dla oryginal: URL, zrodloWave: URL?, katalog: URL = katalogProjektow,
-                      data: Date = Date()) throws -> Zalozony {
+    /// Kopiuje plik i wszystkie sample, których używa, ze `zrodloWave`
+    /// (WAVE karty, z której pochodzi backup — jeśli wiadomo).
+    /// Zakłada strukturę karty OBOK backupu leżącego luzem:
+    /// `<folder pliku>/<nazwa> TM-2/ROLAND/TM-2/{Backup,WAVE}`.
+    static func zaloz(dla oryginal: URL, zrodloWave: URL?) throws -> Zalozony {
         let fm = FileManager.default
         let bajty = [UInt8](try Data(contentsOf: oryginal))
 
-        let format = DateFormatter()
-        format.locale = Locale(identifier: "en_US_POSIX")
-        format.dateFormat = "yyyy-MM-dd HH.mm.ss"
+        let katalog = oryginal.deletingLastPathComponent()
         let rdzen = (oryginal.lastPathComponent as NSString).deletingPathExtension
-        var korzen = katalog.appendingPathComponent("\(rdzen) \(format.string(from: data))",
-                                                    isDirectory: true)
+        var korzen = katalog.appendingPathComponent("\(rdzen) TM-2", isDirectory: true)
         var numer = 2
         while fm.fileExists(atPath: korzen.path) {
-            korzen = katalog.appendingPathComponent(
-                "\(rdzen) \(format.string(from: data)) (\(numer))", isDirectory: true)
+            korzen = katalog.appendingPathComponent("\(rdzen) TM-2 (\(numer))", isDirectory: true)
             numer += 1
         }
         let tm2 = korzen.appendingPathComponent("ROLAND/TM-2", isDirectory: true)

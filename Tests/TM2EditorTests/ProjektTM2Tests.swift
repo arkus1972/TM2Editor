@@ -52,32 +52,42 @@ final class ProjektTM2Tests: XCTestCase {
         XCTAssertTrue(ProjektTM2.sciezkiSampli(w: [1, 2, 3]).isEmpty)
     }
 
-    func testZalozenieProjektuKopiujeBackupISample() throws {
+    /// Backup luzem (np. w Pobranych) — obok niego powstaje `<nazwa> TM-2`
+    /// ze strukturą karty, kopią backupu i samplami z karty, które się znalazły.
+    func testStrukturaObokBackupuLuzem() throws {
         let karta = baza.appendingPathComponent("KARTA/ROLAND/TM-2")
-        let oryginal = karta.appendingPathComponent("Backup/BKUP-004.TM0")
-        try zapiszPlik(Data(bajtyZSamplami()), oryginal)
         try zapiszPlik(Data("A".utf8), karta.appendingPathComponent("WAVE/TEST_A.wav"))
         try zapiszPlik(Data("C".utf8), karta.appendingPathComponent("WAVE/TESTY/TEST_C.wav"))
+        let luzem = baza.appendingPathComponent("Pobrane/BKUP-004.TM0")
+        try zapiszPlik(Data(bajtyZSamplami()), luzem)
 
-        let projekty = baza.appendingPathComponent("Projekty")
-        let p = try ProjektTM2.zaloz(dla: oryginal,
-                                     zrodloWave: KartaSD.folderWave(dlaBackupu: oryginal),
-                                     katalog: projekty, data: Date(timeIntervalSince1970: 0))
+        let p = try ProjektTM2.zaloz(dla: luzem, zrodloWave: karta.appendingPathComponent("WAVE"))
+        XCTAssertEqual(p.korzen.lastPathComponent, "BKUP-004 TM-2")
+        XCTAssertEqual(p.korzen.deletingLastPathComponent().lastPathComponent, "Pobrane")
         XCTAssertEqual(p.skopiowane, 2)
         XCTAssertEqual(p.brakujace, ["BRAK.wav"])
-        XCTAssertEqual(p.backup.lastPathComponent, "BKUP-004.TM0")
+        XCTAssertEqual(p.backup.path,
+                       p.korzen.appendingPathComponent("ROLAND/TM-2/Backup/BKUP-004.TM0").path)
         XCTAssertEqual(try Data(contentsOf: p.backup), Data(bajtyZSamplami()))
         let wave = p.korzen.appendingPathComponent("ROLAND/TM-2/WAVE")
         XCTAssertEqual(try Data(contentsOf: wave.appendingPathComponent("TESTY/TEST_C.wav")), Data("C".utf8))
-        XCTAssertTrue(ProjektTM2.czyWProjekcie(p.backup, katalog: projekty))
-        XCTAssertFalse(ProjektTM2.czyWProjekcie(oryginal, katalog: projekty))
+        XCTAssertEqual(try Data(contentsOf: luzem), Data(bajtyZSamplami()), "Oryginał nietknięty.")
 
-        // Drugi projekt z tego samego backupu, w tej samej sekundzie, nie
-        // nadpisuje pierwszego.
-        let drugi = try ProjektTM2.zaloz(dla: oryginal, zrodloWave: nil, katalog: projekty,
-                                         data: Date(timeIntervalSince1970: 0))
-        XCTAssertNotEqual(drugi.korzen, p.korzen)
+        // Kopia w strukturze jest już „na miejscu" — drugi raz nic nie zakładamy.
+        XCTAssertEqual(ProjektTM2.korzenStruktury(dlaBackupu: p.backup)?.path, p.korzen.path)
+        XCTAssertNil(ProjektTM2.korzenStruktury(dlaBackupu: luzem))
+
+        // Drugie otwarcie tego samego pliku luzem nie nadpisuje pierwszej struktury.
+        let drugi = try ProjektTM2.zaloz(dla: luzem, zrodloWave: nil)
+        XCTAssertEqual(drugi.korzen.lastPathComponent, "BKUP-004 TM-2 (2)")
         XCTAssertEqual(drugi.brakujace.count, 3)
+    }
+
+    /// Backup na karcie (albo w jej kopii) — praca na miejscu.
+    func testKorzenStrukturyKarty() throws {
+        let naKarcie = baza.appendingPathComponent("KARTA/ROLAND/TM-2/Backup/BKUP-008.TM0")
+        try zapiszPlik(Data(bajtyZSamplami()), naKarcie)
+        XCTAssertEqual(ProjektTM2.korzenStruktury(dlaBackupu: naKarcie)?.lastPathComponent, "KARTA")
     }
 
     /// Backup otwarty bez karty: brakujące sample dociągane z karty (po

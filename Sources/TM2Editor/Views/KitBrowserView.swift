@@ -210,11 +210,12 @@ struct KitListView: View, Equatable {
             RoundedRectangle(cornerRadius: 6)
                 .fill(ciemneTlo ? Self.kolorZaznaczenia : Color.clear)
         )
-        // Miejsce upuszczenia — cały prostokąt wiersza, nie kreska.
+        // Ramka — przy zaznaczonym kicie i w miejscu upuszczenia ta sama:
+        // cały prostokąt wiersza, nie kreska.
         .overlay(
             RoundedRectangle(cornerRadius: 6)
                 .strokeBorder(Color.orange, lineWidth: 2)
-                .opacity(jestCelem ? 1 : 0)
+                .opacity(ciemneTlo ? 1 : 0)
         )
         .opacity(przeciagany == kit ? 0.45 : 1)
         .contentShape(Rectangle())
@@ -227,6 +228,10 @@ struct KitListView: View, Equatable {
         if szukane.isEmpty {
             tresc.onDrag {
                 przeciagany = kit
+                // Chwycony kit od razu staje się zaznaczonym — przeciąga się
+                // to, co widać jako wybrane (prośba Arka). Asynchronicznie,
+                // żeby nie przebudowywać listy w trakcie startu przeciągania.
+                DispatchQueue.main.async { onSelect(kit) }
                 return NSItemProvider(object: String(kit) as NSString)
             }
         } else {

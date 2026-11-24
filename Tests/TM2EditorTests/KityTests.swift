@@ -93,6 +93,27 @@ final class KityTests: XCTestCase {
         XCTAssertEqual(e.changes.count, 2)
     }
 
+    /// Przeciąganie: kit 70 na pozycję 2 — kity 2…69 schodzą o jedno miejsce.
+    func testPrzesuniecieKituJakNaLiscie() {
+        let e = edytor()
+        let przed = e.file.bytes
+        XCTAssertTrue(e.przesunKit(z: 70, na: 2))
+        XCTAssertEqual(e.kitName(1), "CIECHOCINEK")
+        XCTAssertEqual(e.kitName(2), "Samples")
+        XCTAssertEqual(e.sciezkaSampla(kit: 2, trigger: 3), "TESTY/TEST_C.wav")
+        XCTAssertNil(e.sciezkaSampla(kit: 70, trigger: 1))
+        XCTAssertEqual(e.changes.count, 1)
+        XCTAssertEqual(Array(e.file.bytes[0..<0x7C]), Array(przed[0..<0x7C]))
+        // W dół: kit 1 na koniec listy.
+        XCTAssertTrue(e.przesunKit(z: 1, na: 99))
+        XCTAssertEqual(e.kitName(99), "CIECHOCINEK")
+        XCTAssertEqual(e.kitName(1), "Samples")
+        e.undo()
+        e.undo()
+        XCTAssertEqual(e.file.bytes, przed)
+        XCTAssertFalse(e.przesunKit(z: 5, na: 5))
+    }
+
     func testPresetZapisOdczytIZastosowanie() throws {
         let e = edytor()
         let preset = try XCTUnwrap(e.presetKitu(70, nazwa: "Moj Kit"))

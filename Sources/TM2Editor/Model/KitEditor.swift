@@ -787,6 +787,29 @@ final class KitEditor: ObservableObject {
                              stary: "kit \(a) ↔ kit \(b)", nowy: "swapped")
     }
 
+    /// Przesuwa kit na inną pozycję listy (przeciąganie): kity pomiędzy
+    /// przesuwają się o jedno miejsce, jak w każdej liście. Bloki kitów
+    /// i wpisy ścieżek WAV leżą w pliku jeden za drugim, więc to obrót
+    /// jednego ciągłego zakresu. Jedna zmiana = jedno Cmd+Z.
+    @discardableResult
+    func przesunKit(z: Int, na cel: Int) -> Bool {
+        guard z != cel, let odKitu = adresKitu(min(z, cel)), adresKitu(max(z, cel)) != nil else { return false }
+        let dolny = min(z, cel), gorny = max(z, cel)
+        var kolejnosc = Array(dolny...gorny)
+        kolejnosc.removeAll { $0 == z }
+        kolejnosc.insert(z, at: cel - dolny)
+        var kity: [UInt8] = []
+        var sciezki: [UInt8] = []
+        for kit in kolejnosc {
+            guard let blok = blokKitu(kit) else { return false }
+            kity += blok.kit
+            sciezki += blok.sciezki
+        }
+        return zapiszKawalki([(odKitu, kity), (adresSciezekKitu(dolny), sciezki)],
+                             fieldID: "kit.move", etykieta: "Move Kit", kit: cel,
+                             stary: "position \(z)", nowy: "position \(cel)")
+    }
+
     /// Preset z bieżącej zawartości kitu.
     func presetKitu(_ kit: Int, nazwa: String) -> PresetKitu? {
         guard let blok = blokKitu(kit) else { return nil }

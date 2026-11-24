@@ -20,7 +20,10 @@ struct KitBrowserView: View {
                 kitCount: max(editor.layout.kitCount, 1),
                 names: editor.kitNames,
                 teksty: editor.tekstyKitow,
-                changedKits: editor.changedKits
+                changedKits: editor.changedKits,
+                przesun: { [editor, selection] z, cel in
+                    if editor.przesunKit(z: z, na: cel) { selection.kit = cel }
+                }
             )
             .frame(minWidth: 240, idealWidth: 290, maxWidth: 380)
 
@@ -44,6 +47,7 @@ struct KitListPane: View {
     let names: [String?]
     let teksty: [String]
     let changedKits: Set<Int>
+    let przesun: (Int, Int) -> Void
 
     var body: some View {
         KitListView(
@@ -51,6 +55,7 @@ struct KitListPane: View {
             names: names,
             teksty: teksty,
             changedKits: changedKits,
+            przesun: przesun,
             selected: selection.kit,
             onSelect: { selection.kit = $0 }
         )
@@ -76,6 +81,8 @@ struct KitListView: View, Equatable {
     /// Nazwa kitu i nazwy jego plików WAV, małymi literami — do szukania.
     let teksty: [String]
     let changedKits: Set<Int>
+    /// Przeciągnięcie kitu na inną pozycję: (skąd, dokąd) — numery kitów.
+    let przesun: (Int, Int) -> Void
     let selected: Int
     let onSelect: (Int) -> Void
 
@@ -120,31 +127,37 @@ struct KitListView: View, Equatable {
             // dziewięciu lista pokazywałaby górę, a podświetlony wiersz byłby
             // poza ekranem. Wyglądałoby to jak brak zaznaczenia.
             ScrollViewReader { widok in
-                List(widoczne, id: \.self, selection: kitSelection) { kit in
-                    HStack(spacing: 10) {
-                        Text(String(format: "%02d", kit))
-                            .font(.system(.title3, design: .monospaced))
-                            .foregroundStyle(.secondary)
-                            .frame(width: 34, alignment: .trailing)
-
-                        if let name = name(for: kit) {
-                            Text(name)
-                                .font(.title3)
-                        } else {
-                            Text("—")
-                                .foregroundStyle(.tertiary)
+                List(selection: kitSelection) {
+                    ForEach(widoczne, id: \.self) { kit in
+                        HStack(spacing: 10) {
+                            Text(String(format: "%02d", kit))
+                                .font(.system(.title3, design: .monospaced))
+                                .foregroundStyle(.secondary)
+                                .frame(width: 34, alignment: .trailing)
+    
+                            if let name = name(for: kit) {
+                                Text(name)
+                                    .font(.title3)
+                            } else {
+                                Text("—")
+                                    .foregroundStyle(.tertiary)
+                            }
+    
+                            Spacer()
+    
+                            if changedKits.contains(kit) {
+                                Circle()
+                                    .fill(Color.orange)
+                                    .frame(width: 6, height: 6)
+                            }
                         }
-
-                        Spacer()
-
-                        if changedKits.contains(kit) {
-                            Circle()
-                                .fill(Color.orange)
-                                .frame(width: 6, height: 6)
-                        }
+                        .tag(kit)
+                        .id(kit)
                     }
-                    .tag(kit)
-                    .id(kit)
+                    // Przeciąganie zmienia kolejność kitów — tylko na pełnej
+                    // liście; przy wyszukiwaniu pozycje na ekranie nie są
+                    // pozycjami w module.
+                    .onMove(perform: obslugaPrzeniesienia)
                 }
                 .listStyle(.inset)
                 // Lista na macOS rysuje własne, pełne tło — przez nie obrazek
@@ -161,6 +174,22 @@ struct KitListView: View, Equatable {
                 }
             }
         }
+    }
+
+    /// Przeciąganie tylko bez filtra wyszukiwania.
+    private var obslugaPrzeniesienia: ((IndexSet, Int) -> Void)? {
+        guard szukane.isEmpty else { return nil }
+        return { skad, dokad in przenies(skad, dokad) }
+    }
+
+    /// `onMove` podaje indeks wiersza i miejsce „przed którym wierszem"
+    /// wstawić. Na pełnej liście wiersz i = kit i + 1.
+    private func przenies(_ skad: IndexSet, _ dokad: Int) {
+        guard let wiersz = skad.first else { return }
+        let z = wiersz + 1
+        let cel = dokad > wiersz ? dokad : dokad + 1
+        guard cel != z, (1...kitCount).contains(cel) else { return }
+        przesun(z, cel)
     }
 
     /// Nazwa z gotowego bufora. Indeks jest 0-based, numer kitu 1-based.

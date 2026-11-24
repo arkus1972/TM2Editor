@@ -21,6 +21,11 @@ struct TM2EditorApp: App {
             CommandGroup(replacing: .newItem) { }
 
             CommandGroup(after: .newItem) {
+                Button("New Backup…") {
+                    model.nowyBackup()
+                }
+                .keyboardShortcut("n", modifiers: .command)
+
                 Button("Open Backup File…") {
                     model.presentOpenPanel()
                 }
@@ -76,6 +81,19 @@ struct TM2EditorApp: App {
             // Bez blokowania „Remove" przy braku tła: menu nie obserwuje
             // obiektu tła, więc stan wyszarzenia mógłby kłamać — a usunięcie
             // nieistniejącego tła po prostu niczego nie robi.
+            CommandMenu("Kit") {
+                Button("Copy Kit To…") { model.kopiujKitDo() }
+                    .disabled(model.editor?.obslugujeBrzmienia != true)
+                Button("Swap Kit With…") { model.zamienKitZ() }
+                    .disabled(model.editor?.obslugujeBrzmienia != true)
+                Divider()
+                Button("Save Kit as Preset…") { model.zapiszPresetKitu() }
+                    .disabled(model.editor?.obslugujeBrzmienia != true)
+                Button("Kit Presets…") { model.pokazPresety = true }
+                    .keyboardShortcut("p", modifiers: [.command, .shift])
+                    .disabled(model.editor?.obslugujeBrzmienia != true)
+            }
+
             CommandMenu("Tools") {
                 Button("Even Out Sample Levels…") {
                     model.pokazWyrownanie = true

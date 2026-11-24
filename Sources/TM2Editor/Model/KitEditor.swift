@@ -120,6 +120,10 @@ final class KitEditor: ObservableObject {
     /// wierszy osobno.
     @Published private(set) var changedKits: Set<Int> = []
 
+    /// Tekst do wyszukiwania na liście kitów, po jednym na kit: nazwa
+    /// i nazwy plików WAV, małymi literami. Liczony razem z nazwami.
+    @Published private(set) var tekstyKitow: [String] = []
+
     private func odswiezNazwyKitow() {
         let liczba = max(layout.kitCount, 1)
         guard let field = layout.kitFields.first(where: { $0.id == "kit.name" }),
@@ -133,6 +137,11 @@ final class KitEditor: ObservableObject {
                   !text.isEmpty else { return nil }
             return text
         }
+        var teksty = (1...liczba).map { (kitNames[$0 - 1] ?? "").lowercased() }
+        for (indeks, sciezka) in ProjektTM2.wpisySampli(w: file.bytes) where indeks / 4 < teksty.count {
+            teksty[indeks / 4] += "\n" + sciezka.lowercased()
+        }
+        tekstyKitow = teksty
     }
 
     private func odswiezZnacznikiZmian() {
@@ -687,6 +696,129 @@ final class KitEditor: ObservableObject {
         odswiezPamiecPodreczna()
         log.append(.edit, change.summary + " (z wartościami domyślnymi efektu)")
         return true
+    }
+
+    // MARK: - Kity jako całość: kopiowanie, zamiana, presety
+    //
+    // Kit to blok 234 B (nazwa, efekt, 4 sloty) plus jego cztery wpisy
+    // w tablicy ścieżek WAV — leżą jeden za drugim, 1024 B. Ustawienia
+    // SYSTEM i wejść są globalne i żadna z tych operacji ich nie rusza.
+    // Każda operacja to JEDNA zmiana na liście — jedno Cmd+Z cofa całość.
+
+    private func adresKitu(_ kit: Int) -> Int? {
+        guard obslugujeBrzmienia, (1...99).contains(kit) else { return nil }
+        return layout.kitOrigin(kit: kit)
+    }
+
+    private func adresSciezekKitu(_ kit: Int) -> Int {
+        Self.poczatekSciezekWav + (kit - 1) * 4 * Self.dlugoscSciezkiWav
+    }
+
+    private func blokKitu(_ kit: Int) -> (kit: [UInt8], sciezki: [UInt8])? {
+        guard let od = adresKitu(kit),
+              let blok = file.slice(at: od, length: 234),
+              let sciezki = file.slice(at: adresSciezekKitu(kit), length: 4 * Self.dlugoscSciezkiWav)
+        else { return nil }
+        return (blok, sciezki)
+    }
+
+    /// Zapisuje kilka kawałków pliku jako jedną zmianę. Kawałki bez różnicy
+    /// pomija; gdy nic się nie zmienia — `true` bez wpisu na listę.
+    private func zapiszKawalki(_ kawalki: [(Int, [UInt8])], fieldID: String, etykieta: String,
+                               kit: Int, stary: String, nowy: String) -> Bool {
+        var fragmenty: [FragmentZmiany] = []
+        for (offset, nowe) in kawalki {
+            guard let stare = file.slice(at: offset, length: nowe.count) else {
+                lastError = "\(etykieta): the data points outside the file."
+                return false
+            }
+            if stare != nowe { fragmenty.append(FragmentZmiany(offset: offset, oldRaw: stare, newRaw: nowe)) }
+        }
+        guard let pierwszy = fragmenty.first else { return true }
+        do {
+            for f in fragmenty { try file.setSlice(f.newRaw, at: f.offset) }
+        } catch {
+            for f in fragmenty.reversed() { try? file.setSlice(f.oldRaw, at: f.offset) }
+            lastError = error.localizedDescription
+            log.append(.error, "\(etykieta) nie powiodło się: \(error.localizedDescription)")
+            return false
+        }
+        let change = EditChange(
+            fieldID: fieldID, fieldLabel: etykieta, scope: .kit, kit: kit, trigger: 1,
+            oldValue: .text(stary), newValue: .text(nowy), timestamp: Date(),
+            offset: pierwszy.offset, oldRaw: pierwszy.oldRaw, newRaw: pierwszy.newRaw,
+            dodatkowe: Array(fragmenty.dropFirst())
+        )
+        changes.append(change)
+        redoStack.removeAll()
+        odswiezPamiecPodreczna()
+        log.append(.edit, change.summary)
+        return true
+    }
+
+    private func opisKitu(_ kit: Int) -> String {
+        "\(String(format: "%02d", kit)) \(kitName(kit) ?? "")"
+    }
+
+    /// Kit `z` (z efektem, brzmieniami i ścieżkami WAV) na miejsce kitu `cel`.
+    @discardableResult
+    func kopiujKit(z: Int, do cel: Int) -> Bool {
+        guard z != cel, let zrodlo = blokKitu(z), let doKitu = adresKitu(cel) else {
+            lastError = lastError ?? "This kit cannot be copied."
+            return false
+        }
+        let stary = opisKitu(cel)
+        return zapiszKawalki([(doKitu, zrodlo.kit), (adresSciezekKitu(cel), zrodlo.sciezki)],
+                             fieldID: "kit.copy", etykieta: "Copy Kit", kit: cel,
+                             stary: stary, nowy: "copy of kit \(z)")
+    }
+
+    /// Zamienia dwa kity miejscami, razem ze ścieżkami WAV.
+    @discardableResult
+    func zamienKity(_ a: Int, _ b: Int) -> Bool {
+        guard a != b, let ka = blokKitu(a), let kb = blokKitu(b),
+              let adresA = adresKitu(a), let adresB = adresKitu(b) else {
+            lastError = lastError ?? "These kits cannot be swapped."
+            return false
+        }
+        return zapiszKawalki([(adresB, ka.kit), (adresSciezekKitu(b), ka.sciezki),
+                              (adresA, kb.kit), (adresSciezekKitu(a), kb.sciezki)],
+                             fieldID: "kit.swap", etykieta: "Swap Kits", kit: a,
+                             stary: "kit \(a) ↔ kit \(b)", nowy: "swapped")
+    }
+
+    /// Preset z bieżącej zawartości kitu.
+    func presetKitu(_ kit: Int, nazwa: String) -> PresetKitu? {
+        guard let blok = blokKitu(kit) else { return nil }
+        let sciezki = (0..<4).map { pad -> String in
+            let od = pad * Self.dlugoscSciezkiWav
+            let wpis = blok.sciezki[od..<(od + Self.dlugoscSciezkiWav)].prefix { $0 != 0 }
+            return String(decoding: wpis, as: UTF8.self)
+        }
+        let brzmienia = (1...4).map { opisBrzmienia(kit: kit, trigger: $0) }
+        return PresetKitu(
+            id: PresetKitu.noweID(), name: String(nazwa.prefix(60)),
+            saved: ISO8601DateFormatter().string(from: Date()), sourceKit: kit,
+            effect: kitEffect(kit: kit)?.nazwa, sounds: brzmienia,
+            kit: Data(blok.kit).base64EncodedString(), paths: sciezki)
+    }
+
+    /// Wpisuje preset na miejsce kitu.
+    @discardableResult
+    func zastosujPreset(_ preset: PresetKitu, kit: Int) -> Bool {
+        guard preset.poprawny, let blok = preset.bajtyKitu, let doKitu = adresKitu(kit) else {
+            lastError = "This preset is damaged or does not fit this backup."
+            return false
+        }
+        var sciezki = [UInt8](repeating: 0, count: 4 * Self.dlugoscSciezkiWav)
+        for (pad, sciezka) in preset.paths.enumerated() {
+            let bajty = Array(sciezka.utf8)
+            let od = pad * Self.dlugoscSciezkiWav
+            sciezki.replaceSubrange(od..<(od + bajty.count), with: bajty)
+        }
+        return zapiszKawalki([(doKitu, blok), (adresSciezekKitu(kit), sciezki)],
+                             fieldID: "kit.preset", etykieta: "Apply Preset", kit: kit,
+                             stary: opisKitu(kit), nowy: preset.name)
     }
 
     // MARK: - Cofanie i ponawianie

@@ -120,6 +120,9 @@ final class AppModel: ObservableObject {
     /// Okno Tools › Even Out Sample Levels…
     @Published var pokazWyrownanie = false
 
+    /// Arkusz z biblioteką presetów kitów (Kit › Kit Presets…).
+    @Published var pokazPresety = false
+
     /// Czy otwarty plik to kopia założona przez edytor (backup luzem) — tylko
     /// wtedy Save As aktualizuje ją na miejscu. Plik otwarty z karty to
     /// ORYGINAŁ i nigdy nie jest nadpisywany.

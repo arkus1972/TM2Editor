@@ -24,6 +24,12 @@ struct ContentView: View {
                 WyrownanieGlosnosci(editor: editor, zamknij: { model.pokazWyrownanie = false })
             }
         }
+        .sheet(isPresented: $model.pokazPresety) {
+            if let editor = model.editor {
+                BibliotekaPresetowView(editor: editor, selection: model.selection,
+                                       zamknij: { model.pokazPresety = false })
+            }
+        }
         .alert("Something went wrong",
                isPresented: Binding(
                    get: { model.errorMessage != nil },
@@ -104,11 +110,17 @@ struct WelcomeView: View {
                 .frame(maxWidth: 560)
                 .fixedSize(horizontal: false, vertical: true)
 
-            Button("Open Backup File…") {
-                model.presentOpenPanel()
+            HStack(spacing: 12) {
+                Button("Open Backup File…") {
+                    model.presentOpenPanel()
+                }
+                .keyboardShortcut(.defaultAction)
+                Button("New Backup…") {
+                    model.nowyBackup()
+                }
+                .help("Start a backup with 99 empty kits, in a new folder with the SD card structure.")
             }
             .controlSize(.large)
-            .keyboardShortcut(.defaultAction)
 
             SafetyNoteView()
                 .frame(maxWidth: 620)

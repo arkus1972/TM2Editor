@@ -19,6 +19,7 @@ struct KitBrowserView: View {
                 selection: selection,
                 kitCount: max(editor.layout.kitCount, 1),
                 names: editor.kitNames,
+                teksty: editor.tekstyKitow,
                 changedKits: editor.changedKits
             )
             .frame(minWidth: 240, idealWidth: 290, maxWidth: 380)
@@ -41,12 +42,14 @@ struct KitListPane: View {
     @ObservedObject var selection: EditorSelection
     let kitCount: Int
     let names: [String?]
+    let teksty: [String]
     let changedKits: Set<Int>
 
     var body: some View {
         KitListView(
             kitCount: kitCount,
             names: names,
+            teksty: teksty,
             changedKits: changedKits,
             selected: selection.kit,
             onSelect: { selection.kit = $0 }
@@ -70,9 +73,24 @@ struct KitListView: View, Equatable {
 
     let kitCount: Int
     let names: [String?]
+    /// Nazwa kitu i nazwy jego plików WAV, małymi literami — do szukania.
+    let teksty: [String]
     let changedKits: Set<Int>
     let selected: Int
     let onSelect: (Int) -> Void
+
+    /// Wpisany tekst szukania. Puste = wszystkie kity.
+    @State private var szukane = ""
+
+    /// Kity pasujące do szukanego tekstu (numer, nazwa albo plik WAV).
+    private var widoczne: [Int] {
+        let t = szukane.trimmingCharacters(in: .whitespaces).lowercased()
+        guard !t.isEmpty else { return Array(1...kitCount) }
+        return (1...kitCount).filter { kit in
+            String(kit) == t || String(format: "%02d", kit) == t
+                || (teksty.indices.contains(kit - 1) && teksty[kit - 1].contains(t))
+        }
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -88,6 +106,12 @@ struct KitListView: View, Equatable {
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
 
+            TextField("Search kits and WAV files", text: $szukane)
+                .textFieldStyle(.roundedBorder)
+                .padding(.horizontal, 10)
+                .padding(.bottom, 8)
+                .help("Find a kit by its number, its name, or the name of a WAV file it plays.")
+
             Divider()
 
             // ScrollViewReader, żeby móc dojechać do zaznaczonego wiersza.
@@ -96,7 +120,7 @@ struct KitListView: View, Equatable {
             // dziewięciu lista pokazywałaby górę, a podświetlony wiersz byłby
             // poza ekranem. Wyglądałoby to jak brak zaznaczenia.
             ScrollViewReader { widok in
-                List(Array(1...kitCount), id: \.self, selection: kitSelection) { kit in
+                List(widoczne, id: \.self, selection: kitSelection) { kit in
                     HStack(spacing: 10) {
                         Text(String(format: "%02d", kit))
                             .font(.system(.title3, design: .monospaced))
@@ -162,6 +186,7 @@ struct KitListView: View, Equatable {
             && lewa.selected == prawa.selected
             && lewa.changedKits == prawa.changedKits
             && lewa.names == prawa.names
+            && lewa.teksty == prawa.teksty
     }
 }
 
@@ -207,7 +232,8 @@ struct KitDetailView: View {
                     fields: editor.layout.kitFields,
                     editor: editor,
                     kit: selection.kit,
-                    trigger: 1
+                    trigger: 1,
+                    wierszNaGorze: editor.obslugujeBrzmienia ? AnyView(NarzedziaKitu()) : nil
                 )
 
                 // Efekt kitu — osobna sekcja, bo to nie zwykłe pole: zmiana

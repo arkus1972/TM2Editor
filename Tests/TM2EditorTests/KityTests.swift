@@ -54,6 +54,20 @@ final class KityTests: XCTestCase {
         XCTAssertEqual(z[0x36], 0)
     }
 
+    /// Backup fabryczny co do bajtu jak plik zrobiony na module po FACTORY RESET.
+    func testBackupFabrycznyJakZModulu() throws {
+        let url = try XCTUnwrap(Bundle.module.url(forResource: "fabryczny", withExtension: "bin",
+                                                  subdirectory: "Zasoby"))
+        let zModulu = [UInt8](try Data(contentsOf: url))
+        XCTAssertEqual(NowyBackup.fabryczny(), zModulu)
+        XCTAssertEqual(Array(NowyBackup.bajty()[0..<0x7C]), Array(zModulu[0..<0x7C]),
+                       "Pusty backup bez otwartego pliku ma fabryczny nagłówek.")
+        let e = KitEditor(file: BackupFile(bytes: zModulu, layout: .mapped2026_09_02), log: EditorLog())
+        XCTAssertEqual(e.kitName(1), "Claps!")
+        XCTAssertEqual(e.kitName(50), "Acoustic")
+        XCTAssertEqual(e.kitName(51), "New Kit")
+    }
+
     func testKopiowanieKituRazemZSamplamiIJednoCofniecie() {
         let e = edytor()
         let przed = e.file.bytes

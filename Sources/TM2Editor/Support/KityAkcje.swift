@@ -73,9 +73,10 @@ extension AppModel {
 
     // MARK: - Nowy backup
 
-    /// File › New Backup…: projekt ze strukturą karty i backupem BKUP-001.TM0
-    /// z 99 pustymi kitami. Ustawienia SYSTEM i wejść z otwartego backupu.
-    func nowyBackup() {
+    /// File › New Backup… / New Factory Backup…: projekt ze strukturą karty
+    /// i backupem BKUP-001.TM0. Pusty: 99 × „New Kit", ustawienia SYSTEM
+    /// i wejść z otwartego backupu. Fabryczny: stan jak po FACTORY RESET.
+    func nowyBackup(fabryczny: Bool = false) {
         if let editor, editor.hasUnsavedChanges {
             let alert = NSAlert()
             alert.messageText = "Discard unsaved changes?"
@@ -85,11 +86,15 @@ extension AppModel {
             guard alert.runModal() == .alertFirstButtonReturn else { return }
         }
         let panel = NSSavePanel()
-        panel.title = "New TM-2 Backup"
-        panel.message = "The editor creates a folder with the SD card structure (ROLAND/TM-2) and a new "
-            + "backup with 99 empty kits. System and trigger settings are taken from the open backup."
+        panel.title = fabryczny ? "New Factory Backup" : "New TM-2 Backup"
+        panel.message = fabryczny
+            ? "The editor creates a folder with the SD card structure (ROLAND/TM-2) and a backup with "
+                + "the factory settings: the 50 factory kits and factory system and trigger settings, "
+                + "exactly as after FACTORY RESET. The module is not erased — load it with BACKUP LOAD."
+            : "The editor creates a folder with the SD card structure (ROLAND/TM-2) and a new "
+                + "backup with 99 empty kits. System and trigger settings are taken from the open backup."
         panel.nameFieldLabel = "Folder name:"
-        panel.nameFieldStringValue = "New TM-2 Backup"
+        panel.nameFieldStringValue = fabryczny ? "TM-2 Factory Backup" : "New TM-2 Backup"
         panel.prompt = "Create"
         panel.canCreateDirectories = true
         guard panel.runModal() == .OK, let korzen = panel.url else { return }
@@ -107,7 +112,8 @@ extension AppModel {
             try fm.createDirectory(at: tm2.appendingPathComponent("WAVE", isDirectory: true),
                                    withIntermediateDirectories: true)
             let plik = backupy.appendingPathComponent("BKUP-001.TM0")
-            try Data(NowyBackup.bajty(naglowekZ: editor?.file.bytes)).write(to: plik, options: .withoutOverwriting)
+            let bajty = fabryczny ? NowyBackup.fabryczny() : NowyBackup.bajty(naglowekZ: editor?.file.bytes)
+            try Data(bajty).write(to: plik, options: .withoutOverwriting)
             log.append(.info, "Nowy backup: \(plik.path)")
             open(url: plik)
         } catch {

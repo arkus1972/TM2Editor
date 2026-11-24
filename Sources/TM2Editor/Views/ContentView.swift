@@ -119,6 +119,11 @@ struct WelcomeView: View {
                     model.nowyBackup()
                 }
                 .help("Start a backup with 99 empty kits, in a new folder with the SD card structure.")
+                Button("Factory Backup…") {
+                    model.nowyBackup(fabryczny: true)
+                }
+                .help("A backup with the factory settings, exactly as after FACTORY RESET — "
+                      + "load it on the module with BACKUP LOAD.")
             }
             .controlSize(.large)
 

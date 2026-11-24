@@ -26,6 +26,11 @@ struct TM2EditorApp: App {
                 }
                 .keyboardShortcut("n", modifiers: .command)
 
+                Button("New Factory Backup…") {
+                    model.nowyBackup(fabryczny: true)
+                }
+                .keyboardShortcut("n", modifiers: [.command, .shift])
+
                 Button("Open Backup File…") {
                     model.presentOpenPanel()
                 }

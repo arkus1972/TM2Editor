@@ -171,14 +171,17 @@ struct KitListView: View, Equatable {
     /// Kolor zaznaczonego kitu (prośba Arka: #371F22 zamiast niebieskiego).
     static let kolorZaznaczenia = Color(red: 0x37 / 255, green: 0x1F / 255, blue: 0x22 / 255)
 
-    /// Kit, który właśnie jest przeciągany, i wiersz, nad którym wisi.
-    @State private var przeciagany: Int?
+    /// Wiersz, nad którym wisi przeciągany kit.
+    ///
+    /// Przeciągać można WYŁĄCZNIE zaznaczony kit (prośba Arka: inaczej robi
+    /// się nieład — zaznaczony A, a przeciąga się E). Dlatego nie trzeba
+    /// pamiętać, który kit jest w ruchu: to zawsze `selected`.
     @State private var celUpuszczenia: Int?
 
     @ViewBuilder
     private func wiersz(_ kit: Int) -> some View {
         let zaznaczony = kit == selected
-        let jestCelem = kit == celUpuszczenia && przeciagany != nil && przeciagany != kit
+        let jestCelem = kit == celUpuszczenia && !zaznaczony
         let ciemneTlo = zaznaczony || jestCelem
         let tresc = HStack(spacing: 10) {
             Text(String(format: "%02d", kit))
@@ -217,22 +220,17 @@ struct KitListView: View, Equatable {
                 .strokeBorder(Color.orange, lineWidth: 2)
                 .opacity(ciemneTlo ? 1 : 0)
         )
-        .opacity(przeciagany == kit ? 0.45 : 1)
         .contentShape(Rectangle())
         .onTapGesture { onSelect(kit) }
         .onDrop(of: [.text], delegate: UpuszczenieKitu(
-            kit: kit, przeciagany: $przeciagany, cel: $celUpuszczenia, przesun: przesun))
+            kit: kit, przeciagany: selected, cel: $celUpuszczenia, przesun: przesun))
 
-        // Przeciąganie tylko na pełnej liście — przy wyszukiwaniu pozycje
-        // na ekranie nie są pozycjami w module.
-        if szukane.isEmpty {
+        // Chwycić da się tylko zaznaczony kit, i tylko na pełnej liście —
+        // przy wyszukiwaniu pozycje na ekranie nie są pozycjami w module.
+        // Pozostałe wiersze: kliknięcie zaznacza, przeciągnięcie nic nie robi.
+        if szukane.isEmpty && zaznaczony {
             tresc.onDrag {
-                przeciagany = kit
-                // Chwycony kit od razu staje się zaznaczonym — przeciąga się
-                // to, co widać jako wybrane (prośba Arka). Asynchronicznie,
-                // żeby nie przebudowywać listy w trakcie startu przeciągania.
-                DispatchQueue.main.async { onSelect(kit) }
-                return NSItemProvider(object: String(kit) as NSString)
+                NSItemProvider(object: String(kit) as NSString)
             }
         } else {
             tresc
@@ -263,9 +261,14 @@ struct KitListView: View, Equatable {
 /// wiersza, kity pomiędzy przesuwają się o jedno miejsce.
 struct UpuszczenieKitu: DropDelegate {
     let kit: Int
-    @Binding var przeciagany: Int?
+    /// Przeciągany kit — zawsze ten zaznaczony.
+    let przeciagany: Int
     @Binding var cel: Int?
     let przesun: (Int, Int) -> Void
+
+    func validateDrop(info: DropInfo) -> Bool {
+        info.hasItemsConforming(to: [.text])
+    }
 
     func dropEntered(info: DropInfo) { cel = kit }
 
@@ -278,12 +281,9 @@ struct UpuszczenieKitu: DropDelegate {
     }
 
     func performDrop(info: DropInfo) -> Bool {
-        defer {
-            przeciagany = nil
-            cel = nil
-        }
-        guard let z = przeciagany, z != kit else { return false }
-        przesun(z, kit)
+        defer { cel = nil }
+        guard przeciagany != kit else { return false }
+        przesun(przeciagany, kit)
         return true
     }
 }

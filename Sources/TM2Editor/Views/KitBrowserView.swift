@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// Przeglądarka kitów: lista po lewej, edytor po prawej.
 ///
@@ -127,44 +128,35 @@ struct KitListView: View, Equatable {
             // dziewięciu lista pokazywałaby górę, a podświetlony wiersz byłby
             // poza ekranem. Wyglądałoby to jak brak zaznaczenia.
             ScrollViewReader { widok in
-                List(selection: kitSelection) {
-                    ForEach(widoczne, id: \.self) { kit in
-                        HStack(spacing: 10) {
-                            Text(String(format: "%02d", kit))
-                                .font(.system(.title3, design: .monospaced))
-                                .foregroundStyle(.secondary)
-                                .frame(width: 34, alignment: .trailing)
-    
-                            if let name = name(for: kit) {
-                                Text(name)
-                                    .font(.title3)
-                            } else {
-                                Text("—")
-                                    .foregroundStyle(.tertiary)
-                            }
-    
-                            Spacer()
-    
-                            if changedKits.contains(kit) {
-                                Circle()
-                                    .fill(Color.orange)
-                                    .frame(width: 6, height: 6)
-                            }
+                // Własne wiersze zamiast `List`: systemowa lista macOS
+                // podświetla zaznaczenie kolorem akcentu systemu (niebieskim)
+                // i przy przeciąganiu pokazuje tylko kreskę między wierszami.
+                // Arek chciał #371F22 i cały prostokąt w miejscu upuszczenia.
+                ScrollView {
+                    LazyVStack(spacing: 2) {
+                        ForEach(widoczne, id: \.self) { kit in
+                            wiersz(kit)
+                                .id(kit)
                         }
-                        .tag(kit)
-                        .id(kit)
                     }
-                    // Przeciąganie zmienia kolejność kitów — tylko na pełnej
-                    // liście; przy wyszukiwaniu pozycje na ekranie nie są
-                    // pozycjami w module.
-                    .onMove(perform: obslugaPrzeniesienia)
+                    .padding(6)
                 }
-                .listStyle(.inset)
-                // Lista na macOS rysuje własne, pełne tło — przez nie obrazek
-                // byłby widoczny wszędzie oprócz listy. Chowamy je i dajemy
-                // to samo matowe szkło co sekcjom z parametrami.
-                .scrollContentBackground(.hidden)
                 .background(.regularMaterial)
+                // Strzałki ↑/↓ — jak w zwykłej liście.
+                .focusable()
+                .onMoveCommand { kierunek in
+                    guard let i = widoczne.firstIndex(of: selected) else { return }
+                    switch kierunek {
+                    case .up where i > 0:
+                        onSelect(widoczne[i - 1])
+                        widok.scrollTo(widoczne[i - 1])
+                    case .down where i + 1 < widoczne.count:
+                        onSelect(widoczne[i + 1])
+                        widok.scrollTo(widoczne[i + 1])
+                    default:
+                        break
+                    }
+                }
                 .onAppear {
                     // Tylko przy pierwszym pokazaniu listy. Później przewijaniem
                     // rządzi użytkownik i nie ma nic gorszego niż widok, który
@@ -176,20 +168,70 @@ struct KitListView: View, Equatable {
         }
     }
 
-    /// Przeciąganie tylko bez filtra wyszukiwania.
-    private var obslugaPrzeniesienia: ((IndexSet, Int) -> Void)? {
-        guard szukane.isEmpty else { return nil }
-        return { skad, dokad in przenies(skad, dokad) }
-    }
+    /// Kolor zaznaczonego kitu (prośba Arka: #371F22 zamiast niebieskiego).
+    static let kolorZaznaczenia = Color(red: 0x37 / 255, green: 0x1F / 255, blue: 0x22 / 255)
 
-    /// `onMove` podaje indeks wiersza i miejsce „przed którym wierszem"
-    /// wstawić. Na pełnej liście wiersz i = kit i + 1.
-    private func przenies(_ skad: IndexSet, _ dokad: Int) {
-        guard let wiersz = skad.first else { return }
-        let z = wiersz + 1
-        let cel = dokad > wiersz ? dokad : dokad + 1
-        guard cel != z, (1...kitCount).contains(cel) else { return }
-        przesun(z, cel)
+    /// Kit, który właśnie jest przeciągany, i wiersz, nad którym wisi.
+    @State private var przeciagany: Int?
+    @State private var celUpuszczenia: Int?
+
+    @ViewBuilder
+    private func wiersz(_ kit: Int) -> some View {
+        let zaznaczony = kit == selected
+        let jestCelem = kit == celUpuszczenia && przeciagany != nil && przeciagany != kit
+        let ciemneTlo = zaznaczony || jestCelem
+        let tresc = HStack(spacing: 10) {
+            Text(String(format: "%02d", kit))
+                .font(.system(.title3, design: .monospaced))
+                .foregroundStyle(ciemneTlo ? Color.white.opacity(0.75) : Color.secondary)
+                .frame(width: 34, alignment: .trailing)
+
+            if let name = name(for: kit) {
+                Text(name)
+                    .font(.title3)
+                    .foregroundStyle(ciemneTlo ? Color.white : Color.primary)
+            } else {
+                Text("—")
+                    .foregroundStyle(.tertiary)
+            }
+
+            Spacer()
+
+            if changedKits.contains(kit) {
+                Circle()
+                    .fill(Color.orange)
+                    .frame(width: 6, height: 6)
+            }
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 5)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 6)
+                .fill(ciemneTlo ? Self.kolorZaznaczenia : Color.clear)
+        )
+        // Miejsce upuszczenia — cały prostokąt wiersza, nie kreska.
+        .overlay(
+            RoundedRectangle(cornerRadius: 6)
+                .strokeBorder(Color.orange, lineWidth: 2)
+                .opacity(jestCelem ? 1 : 0)
+        )
+        .opacity(przeciagany == kit ? 0.45 : 1)
+        .contentShape(Rectangle())
+        .onTapGesture { onSelect(kit) }
+        .onDrop(of: [.text], delegate: UpuszczenieKitu(
+            kit: kit, przeciagany: $przeciagany, cel: $celUpuszczenia, przesun: przesun))
+
+        // Przeciąganie tylko na pełnej liście — przy wyszukiwaniu pozycje
+        // na ekranie nie są pozycjami w module.
+        if szukane.isEmpty {
+            tresc.onDrag {
+                przeciagany = kit
+                return NSItemProvider(object: String(kit) as NSString)
+            }
+        } else {
+            tresc
+        }
     }
 
     /// Nazwa z gotowego bufora. Indeks jest 0-based, numer kitu 1-based.
@@ -197,13 +239,6 @@ struct KitListView: View, Equatable {
         let index = kit - 1
         guard names.indices.contains(index) else { return nil }
         return names[index]
-    }
-
-    private var kitSelection: Binding<Int?> {
-        Binding(
-            get: { selected },
-            set: { if let value = $0 { onSelect(value) } }
-        )
     }
 
     /// Domknięcie `onSelect` celowo poza porównaniem — SwiftUI tworzy je od
@@ -216,6 +251,35 @@ struct KitListView: View, Equatable {
             && lewa.changedKits == prawa.changedKits
             && lewa.names == prawa.names
             && lewa.teksty == prawa.teksty
+    }
+}
+
+/// Upuszczenie przeciąganego kitu na wiersz: kit trafia na pozycję tego
+/// wiersza, kity pomiędzy przesuwają się o jedno miejsce.
+struct UpuszczenieKitu: DropDelegate {
+    let kit: Int
+    @Binding var przeciagany: Int?
+    @Binding var cel: Int?
+    let przesun: (Int, Int) -> Void
+
+    func dropEntered(info: DropInfo) { cel = kit }
+
+    func dropExited(info: DropInfo) {
+        if cel == kit { cel = nil }
+    }
+
+    func dropUpdated(info: DropInfo) -> DropProposal? {
+        DropProposal(operation: .move)
+    }
+
+    func performDrop(info: DropInfo) -> Bool {
+        defer {
+            przeciagany = nil
+            cel = nil
+        }
+        guard let z = przeciagany, z != kit else { return false }
+        przesun(z, kit)
+        return true
     }
 }
 
